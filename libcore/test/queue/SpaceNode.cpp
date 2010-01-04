@@ -100,7 +100,7 @@ void SpaceNode::pullFromSpaces(size_t howMany) {
             }
             if (retval) {
                 ObjectHost *oh=gObjectHosts[oSeg[msg.dest]->objectHost];
-                mOHMessageQueue[oh->queuePerObject()?msg.dest:oh->id()].push(msg,msg.size,1.e38-msg.timeStamp);
+                mOHMessageQueue[oh->queuePerObject()?msg.dest:oh->id()].push(msg,msg.size,gPriority(msg.source,msg.dest));
                 oh->notifyNewSpaceMessage(oh->queuePerObject()?msg.dest:id());
                 pullFromOH(1);
             }
@@ -127,7 +127,7 @@ void SpaceNode::pullFromOH(size_t howMany) {
         bool ret=pullfromoh(msg);
         if(ret) {
             UUID spaceNodeId=oSeg[msg.dest]->spaceServerNode;//FIXME OSEG lookup
-            double priority=1.e38-msg.timeStamp;//gPriority(msg.source,msg.dest);
+            double priority=gPriority(msg.source,msg.dest);
             if (mKnownSpaceNodes->find(spaceNodeId)==mKnownSpaceNodes->end()){
                 mRNMessageQueue.push(msg,msg.size,priority);
             }else {

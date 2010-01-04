@@ -55,12 +55,13 @@ int main() {
     int nobj=8192;
     int nssv=128;
     int noh=512;
-    int nmsg=1024*1024;
     bool distanceKnowledge=false;
-    bool remoteRadiusKnowledge=false;
+    bool remoteRadiusKnowledge=true;
     bool localRadiusKnowledge=true;
-    int queueSize=128;
+    int ohQueueSize=128;
+    int spaceQueueSize=128;
     int toplevelgridwidth=6;
+    int nmsg=/*1024*1024;*/ohQueueSize*noh;
     bool separateObjectStreams=true;
     BoundingBox3d3f bounds(Vector3d::nil(),Vector3d(100000.,100000.,100));
     generateSpaceServers(bounds, nssv,toplevelgridwidth);
@@ -76,7 +77,7 @@ int main() {
         int i=0;
         double lastPriority=1.e38;
         while(omq.popMessage(msg)) {
-            double priority=gPriority(msg.source,msg.dest);
+            double priority=standardfalloff(msg.source,msg.dest);
             if (priority>lastPriority) {
                 //printf ("Priority Error %.40f vs %.40f\n",priority,lastPriority);
                 
@@ -98,10 +99,10 @@ int main() {
             gObjectHosts[oSeg[msg.source]->objectHost]->insertMessage(msg);
         }
         for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-            i->second->pullFromOH(queueSize);
+            i->second->pullFromOH(ohQueueSize);
         }
         for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-            i->second->pullFromSpaces(queueSize);
+            i->second->pullFromSpaces(spaceQueueSize);
         }
         for (int i=0;i<nmsg;) {
             Message msg;
@@ -110,17 +111,17 @@ int main() {
                  j!=je;
                  ++j) {
                 if (j->second->pull(msg)) {
-                    finalMessageOrder[-gPriority(msg.source,msg.dest)]=i;
+                    finalMessageOrder[-standardfalloff(msg.source,msg.dest)]=i;
                     nonepulled=false;
                     ++i;
                 }
             }
             {
                 for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-                    i->second->pullFromOH(queueSize);
+                    i->second->pullFromOH(ohQueueSize);
                 }
                 for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-                    i->second->pullFromSpaces(queueSize);
+                    i->second->pullFromSpaces(spaceQueueSize);
                 }
             }
             if (nonepulled&&i<nmsg) {

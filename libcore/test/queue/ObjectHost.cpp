@@ -168,22 +168,21 @@ bool ObjectHost::pull(Message&msg){
 }
 double ObjectHost::ohMessagePriority(const Message&msg){
     double priority=1;
-    if (mDistanceKnowledge) {
-        priority=gPriority(msg.source,msg.dest);
-        if (!mRemoteObjectRadiusKnowledge) {
-            priority/=oSeg[msg.dest]->radialSize;
-        }
-        if(!mLocalObjectRadiusKnowledge) {
-            priority/=oSeg[msg.source]->radialSize;
-        }
-    }else {
-        if(mLocalObjectRadiusKnowledge) {
-            priority*=oSeg[msg.source]->radialSize;
-        }
-        if (mRemoteObjectRadiusKnowledge) {
-            priority*=oSeg[msg.dest]->radialSize;
-        }
+    double oldSourceSize=oSeg[msg.source]->radialSize;
+    double oldDestSize=oSeg[msg.dest]->radialSize;
+    if (!mLocalObjectRadiusKnowledge) {
+        oSeg[msg.source]->radialSize=1;
     }
+    if (!mRemoteObjectRadiusKnowledge) {
+        oSeg[msg.dest]->radialSize=1;
+    }
+    priority=gPriority(msg.source,msg.dest);    
+    if (!mDistanceKnowledge) {
+        priority/=gLocationPriority(oSeg[msg.source]->location,
+                                    oSeg[msg.dest]->location);
+    }
+    oSeg[msg.source]->radialSize=oldSourceSize;
+    oSeg[msg.dest]->radialSize=oldDestSize;
     return priority;
 }
 void ObjectHost::insertMessage (const Message&msg){

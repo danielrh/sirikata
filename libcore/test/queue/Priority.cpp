@@ -20,6 +20,28 @@ double standardfalloff (const UUID&a, const UUID&b) {
     return ad->radialSize*bd->radialSize*gLocationPriority(ad->location,bd->location);
 }
 
+double randomLocationPriority(const Vector3d &a, const Vector3d b) {
+    size_t c=std::tr1::hash<float>()(a.x);
+    size_t d=std::tr1::hash<float>()(a.y);
+    size_t e=std::tr1::hash<float>()(a.z);
+    size_t f=std::tr1::hash<float>()(b.x);
+    size_t g=std::tr1::hash<float>()(b.y);
+    size_t h=std::tr1::hash<float>()(b.z);
+    size_t j=c^d^e^f^g^h;
+    j%=2147483645;
+    j+=1;
+    return j/(2147483645.);
+}
+double randomPriority(const UUID&a, const UUID&b) {
+    ObjectData* ad=oSeg[a];
+    ObjectData* bd=oSeg[b];
+    return randomLocationPriority(ad->location,bd->location);
+}
+#if 1
 std::tr1::function<double(const Vector3d&, const Vector3d&)> gLocationPriority(&oonnlgnlgn);
 std::tr1::function<double(const UUID&, const UUID&)> gPriority(&standardfalloff);
+#else
+std::tr1::function<double(const Vector3d&, const Vector3d&)> gLocationPriority(&randomLocationPriority);
+std::tr1::function<double(const UUID&, const UUID&)> gPriority(&randomPriority);
+#endif
 } }
