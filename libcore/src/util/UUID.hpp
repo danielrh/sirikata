@@ -81,7 +81,7 @@ public:
     bool operator==(const UUID &other)const {return mData == other.mData;}
     bool isNull()const{return mData==Data::null();}
     size_t hash() const;
-    class Hasher{public:
+    class SIRIKATA_EXPORT Hasher{public:
         size_t operator() (const UUID&uuid) const {
             return uuid.hash();
         }
