@@ -13,6 +13,19 @@ double oonnlgnlgn(const Vector3d &a, const Vector3d b) {
 
     return 1./(dlgd*dlgd);
 }
+double roughStandardfalloff (const UUID&a, const UUID&b) {
+    ObjectData* ad=oSeg[a];
+    ObjectData* bd=oSeg[b];
+    int exp;
+    frexp(bd->radialSize,&exp);
+    double bdrsize=ldexp(1.0,exp);
+    frexp(ad->radialSize,&exp);
+    double adrsize=ldexp(1.0,exp);
+//    adrsize=bdrsize=1.0;
+    return adrsize*bdrsize*gLocationPriority(ad->location,bd->location);
+}
+
+
 double standardfalloff (const UUID&a, const UUID&b) {
     ObjectData* ad=oSeg[a];
     ObjectData* bd=oSeg[b];
@@ -39,7 +52,7 @@ double randomPriority(const UUID&a, const UUID&b) {
 }
 #if 1
 std::tr1::function<double(const Vector3d&, const Vector3d&)> gLocationPriority(&oonnlgnlgn);
-std::tr1::function<double(const UUID&, const UUID&)> gPriority(&standardfalloff);
+std::tr1::function<double(const UUID&, const UUID&)> gPriority(&roughStandardfalloff);
 #else
 std::tr1::function<double(const Vector3d&, const Vector3d&)> gLocationPriority(&randomLocationPriority);
 std::tr1::function<double(const UUID&, const UUID&)> gPriority(&randomPriority);
