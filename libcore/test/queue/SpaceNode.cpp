@@ -4,9 +4,10 @@
 #include "ObjectHost.hpp"
 #include "OSeg.hpp"
 #include "Priority.hpp"
+#include "Random.hpp"
 namespace Sirikata{ namespace QueueBench {
 std::tr1::unordered_map<UUID,SpaceNode*,UUID::Hasher>gSpaceNodes;
-SpaceNode::SpaceNode(const BoundingBox3d3f & box):mBounds(box),mName(UUID::random()){
+SpaceNode::SpaceNode(const BoundingBox3d3f & box):mBounds(box),mName(pseudorandomUUID()){
     gSpaceNodes[id()]=this;
     mKnownSpaceNodes=&gSpaceNodes;
     mRNPrioritySet=false;
@@ -16,10 +17,17 @@ void SpaceNode::setKnownSpaceNodes(const SpaceNodeMap*snm) {
     mKnownSpaceNodes=snm;
 }
 SpaceNode*SpaceNode::split(){
-    int axis=rand()%2;//%3?!
+    typedef boost::uniform_int<> distribution_type;
+    typedef boost::variate_generator<base_generator_type&, distribution_type> gen_type;
+    gen_type gen(generator, distribution_type(0, 1/*2?!*/));
+
+    int axis=gen();
     BoundingBox3d3f oldbounds;
     BoundingBox3d3f newbounds;
-    double splitline=rand()/(double)RAND_MAX;
+    boost::uniform_real<> uni_dist(0,1);
+    boost::variate_generator<base_generator_type&, boost::uniform_real<> > uni(generator, uni_dist);
+
+    double splitline=uni();
     if (axis==0) {
         oldbounds=BoundingBox3d3f(mBounds.min(),
                                   mBounds.min()+Vector3d(mBounds.diag().x*splitline,mBounds.diag().y,mBounds.diag().z));
@@ -42,9 +50,14 @@ SpaceNode*SpaceNode::split(){
 }
 
 Vector3d SpaceNode::randomLocation() const{
-    return mBounds.min()+Vector3d(mBounds.diag().x*(rand()/(double)RAND_MAX),
-                                  mBounds.diag().y*(rand()/(double)RAND_MAX),
-                                  mBounds.diag().z*(rand()/(double)RAND_MAX));
+    boost::uniform_real<> uni_dist(0,1);
+    boost::variate_generator<base_generator_type&, boost::uniform_real<> > uni(generator, uni_dist);
+    double xm=uni();
+    double ym=uni();
+    double zm=uni();
+    return mBounds.min()+Vector3d(mBounds.diag().x*xm,
+                                  mBounds.diag().y*ym,
+                                  mBounds.diag().z*zm);
                                   
 }
 

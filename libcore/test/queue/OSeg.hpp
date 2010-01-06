@@ -34,11 +34,7 @@ public:
         gObjectHosts[data.objectHost]->addObject(oid);
         return &where->second;
     }
-    UUID random() {
-        if (mSeg.empty())
-            return UUID::null();
-        return mUUIDs[rand()%mUUIDs.size()];
-    }
+    UUID random();
 };
 extern OSeg oSeg;
 } }

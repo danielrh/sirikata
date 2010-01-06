@@ -6,6 +6,7 @@
 #include "Generator.hpp"
 #include "OracleMessageQueue.hpp"
 #include "OracleOHMessageQueue.hpp"
+#include "Random.hpp"
 using namespace Sirikata;
 using namespace Sirikata::QueueBench;
 void generateSpaceServers(const BoundingBox3d3f&bounds,int num,int width) {
@@ -16,7 +17,11 @@ void generateSpaceServers(const BoundingBox3d3f&bounds,int num,int width) {
         }
     }
     for (int i=width*width;i<num;++i) {
-        servers.push_back(gSpaceNodes[servers[rand()%servers.size()]]->split()->id());
+        typedef boost::uniform_int<> distribution_type;
+        typedef boost::variate_generator<base_generator_type&, distribution_type> gen_type;
+        gen_type gen(generator, distribution_type(0, servers.size()-1));
+
+        servers.push_back(gSpaceNodes[servers[gen()]]->split()->id());
     }
     for (size_t i=0;i<servers.size();++i) {
         //std::cout<< "Bounds are "<<gSpaceNodes[servers[i]]->bounds().min().toString()<<'-'<<gSpaceNodes[servers[i]]->bounds().min().toString()<<'\n';
@@ -25,7 +30,10 @@ void generateSpaceServers(const BoundingBox3d3f&bounds,int num,int width) {
 }
 
 double randomObjectSize() {
-    double size= rand()/(double)RAND_MAX;
+    boost::uniform_real<> uni_dist(0,1);
+    boost::variate_generator<base_generator_type&, boost::uniform_real<> > uni(generator, uni_dist);
+
+    double size= uni();
     size*=size;
     size*=size;
     return size;
@@ -39,7 +47,7 @@ void generateObjects(int nobj,const std::vector<UUID> &objectHosts) {
             od.radialSize=randomObjectSize();
             od.spaceServerNode=i->second->id();
             od.objectHost=objectHosts[rand()%objectHosts.size()];
-            oSeg.insert(UUID::random(),od);
+            oSeg.insert(pseudorandomUUID(),od);
         }
     }
 }
@@ -51,7 +59,6 @@ void generateObjectHosts(int noh, int nobj, bool separateObjectStreams,bool dist
     generateObjects(nobj,ohs);
 }
 int main() {
-    srand(17);
     int nobj=8192;
     int nssv=128;
     int noh=512;

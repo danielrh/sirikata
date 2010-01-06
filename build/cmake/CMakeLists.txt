@@ -1455,6 +1455,7 @@ ADD_EXECUTABLE(${TEST_BINARY} ${TEST_SOURCES})# EXCLUDE_FROM_ALL
 ADD_EXECUTABLE(${BENCH_BINARY} ${TOP_LEVEL}/libcore/test/SSTBenchmark.cpp)
 ADD_EXECUTABLE(${QUEUE_BINARY} 
   ${TOP_LEVEL}/libcore/test/queue/OSeg.cpp
+  ${TOP_LEVEL}/libcore/test/queue/Random.cpp
   ${TOP_LEVEL}/libcore/test/queue/main.cpp
   ${TOP_LEVEL}/libcore/test/queue/Generator.cpp
   ${TOP_LEVEL}/libcore/test/queue/SpaceNode.cpp

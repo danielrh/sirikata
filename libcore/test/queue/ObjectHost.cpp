@@ -5,9 +5,10 @@
 #include "Priority.hpp"
 #include "SpaceNode.hpp"
 #include "Generator.hpp"
+#include "Random.hpp"
 namespace Sirikata { namespace QueueBench {
 std::tr1::unordered_map<UUID,ObjectHost*,UUID::Hasher>gObjectHosts;
-ObjectHost::ObjectHost(bool streamPerObject,bool distanceKnowledge,bool remoteRadiusKnowledge,bool localRadiusKnowledge):mName(UUID::random()) {
+ObjectHost::ObjectHost(bool streamPerObject,bool distanceKnowledge,bool remoteRadiusKnowledge,bool localRadiusKnowledge):mName(pseudorandomUUID()) {
     gObjectHosts[mName]=this;       
     mStreamPerObject=streamPerObject;
     mLocalObjectRadiusKnowledge=localRadiusKnowledge;
