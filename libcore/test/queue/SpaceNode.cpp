@@ -69,7 +69,7 @@ void SpaceNode::notifyNewOHMessage(const UUID&id, double priority) {
             if (priority>where->second.first*2) {
                 ///FIXME want to rebuild priority
                 //std::cout<<"Rebuilding Message Map"<<'\n';
-                mNextMessage.updatePriority(where->first,1,priority);
+                mNextMessage.updatePriority(where->first,1,priority,true);
             }
         }
     }else {

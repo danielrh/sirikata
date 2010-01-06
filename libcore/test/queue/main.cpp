@@ -69,16 +69,26 @@ int main() {
     int spaceQueueSize=128;
     int toplevelgridwidth=6;
     int nmsg=/*1024*1024;*/ohQueueSize*noh;
+
+
     bool separateObjectStreams=true;
     BoundingBox3d3f bounds(Vector3d::nil(),Vector3d(100000.,100000.,100));
     generateSpaceServers(bounds, nssv,toplevelgridwidth);
     generateObjectHosts(noh,nobj,separateObjectStreams,distanceKnowledge,remoteRadiusKnowledge,localRadiusKnowledge);
+
     Generator *rmg=new RandomMessageGenerator;
+    std::vector<Message>messages(nmsg);
+    for (int i=0;i<nmsg;++i) {
+        messages[i]=rmg->generate(oSeg.random());
+    }
+
+
     std::map<double,int> finalMessageOrder;
-    if (false) {
+    std::map<double,int> oracleMessageOrder;
+    if (true) {
         OracleOHMessageQueue omq;
         for (int i=0;i<nmsg;++i) {
-            omq.insertMessage(rmg->generate(oSeg.random()));
+            omq.insertMessage(messages[i]);
         }
         Message msg;
         int i=0;
@@ -96,14 +106,14 @@ int main() {
             }
 
             lastPriority=priority;
-            finalMessageOrder[-priority]=i;
+            oracleMessageOrder[-priority]=i;
             //std::cout<<gPriority(msg.source,msg.dest)<<std::endl;
             ++i;
         }
-    }else {
+    }
+    if (true) {
         for (int i=0;i<nmsg;++i) {
-            Message msg=rmg->generate(oSeg.random());
-            gObjectHosts[oSeg[msg.source]->objectHost]->insertMessage(msg);
+            gObjectHosts[oSeg[messages[i].source]->objectHost]->insertMessage(messages[i]);
         }
         for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
             i->second->pullFromOH(ohQueueSize);
@@ -145,6 +155,11 @@ int main() {
     std::map<double,int>::iterator iter=finalMessageOrder.begin();
     for (size_t i=0;i<finalMessageOrder.size();++i,++iter) {
         int64 diff=i-iter->second;
+        if (oracleMessageOrder.find(iter->first)!=oracleMessageOrder.end()) {
+            diff=oracleMessageOrder[iter->first]-iter->second;
+        }else {
+            std::cout<<"Oracle failed to deliver message "<<iter->first<<"'\n";
+        }
         if (diff) {
             //std::cout<<"Diffd "<<diff<<"'\n";
         }

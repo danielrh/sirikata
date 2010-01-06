@@ -21,19 +21,9 @@ template <class Message> class FairQueue {
             return outTime>other.outTime;
         }
     };
-    std::priority_queue<MessagePriority> mQueue;
+    std::vector<MessagePriority> mQueue;
     double mNow;
-  public:
-    FairQueue() {
-        mNow=0;
-    }
-    bool nothingPopped(){
-        return mNow==0;
-    }
-    void updatePriority(const Message&msg,size_t messageSize, double priority){
-        //NOT_IMPLEMENTED();
-    }
-    void push(const Message& msg, size_t messageSize, double priority){
+    double getPriority(size_t messageSize, double priority) {
         double finish=mNow+messageSize/priority;
         if (finish<mNow) {
             assert(0);
@@ -43,7 +33,31 @@ template <class Message> class FairQueue {
             finish=mNow+eps;
             eps*=2;
         }
-        mQueue.push(MessagePriority(msg,finish));
+        return finish;
+    }
+  public:
+    FairQueue() {
+        mNow=0;
+    }
+    bool nothingPopped(){
+        return mNow==0;
+    }
+    void updatePriority(const Message&msg,size_t messageSize, double priority, bool onlyIfBetter=false){
+        for (typename std::vector<MessagePriority>::iterator i=mQueue.begin(),ie=mQueue.end();i!=ie;++i) {
+            if (i->msg==msg) {
+                double newPriority=getPriority(messageSize,priority);
+                if (i->outTime>newPriority||!onlyIfBetter) {
+                    i->outTime=newPriority;
+                }
+                std::make_heap(mQueue.begin(),mQueue.end());
+                break;
+            }
+        }
+    }
+    void push(const Message& msg, size_t messageSize, double priority){
+        double finish=getPriority(messageSize,priority);
+        mQueue.push_back(MessagePriority(msg,finish));
+        std::push_heap(mQueue.begin(),mQueue.end());
     }
     bool empty() const{
         return mQueue.empty();
@@ -53,14 +67,15 @@ template <class Message> class FairQueue {
     }
 
     const Message& front()const{
-        return mQueue.top().msg;
+        return mQueue.front().msg;
     }
     double frontPriority()const{
-        return mQueue.top().outTime;
+        return mQueue.front().outTime;
     }
     void pop() {
-        mNow=mQueue.top().outTime;
-        mQueue.pop();
+        mNow=mQueue.front().outTime;
+        std::pop_heap(mQueue.begin(),mQueue.end());
+        mQueue.pop_back();
     }
 };
 } }
