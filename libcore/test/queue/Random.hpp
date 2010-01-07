@@ -7,4 +7,5 @@ namespace Sirikata { namespace QueueBench {
 typedef boost::minstd_rand base_generator_type;
 extern base_generator_type generator;
 Sirikata::UUID pseudorandomUUID();
+void resetPseudorandomUUID(uint64 number);
 } }

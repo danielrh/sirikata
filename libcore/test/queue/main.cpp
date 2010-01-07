@@ -16,8 +16,9 @@ void generateSpaceServers(const BoundingBox3d3f&bounds,int num,int width, int rn
     SpaceNode* prevrn=NULL;
     for (int i=0;i<width;++i) {
         for (int j=0;j<width;++j) {
+            SpaceNode*hypotheticalParent=new SpaceNode(BoundingBox3d3f(bounds.min()+Vector3d(bounds.across().x*(i/(double)rnwidth),bounds.across().y*(j/(double)rnwidth),0.0),bounds.min()+Vector3d(bounds.across().x*((i+1)/(double)rnwidth),bounds.across().y*((j+1)/(double)rnwidth),bounds.across().z)),NULL);
             if (i%rnratio==0&&j%rnratio==0) {
-                servers.push_back((currn=new SpaceNode(BoundingBox3d3f(bounds.min()+Vector3d(bounds.across().x*(i/(double)rnwidth),bounds.across().y*(j/(double)rnwidth),0.0),bounds.min()+Vector3d(bounds.across().x*((i+1)/(double)rnwidth),bounds.across().y*((j+1)/(double)rnwidth),bounds.across().z)),NULL))->id());
+                servers.push_back((currn=hypotheticalParent)->id());
                 if (!prevrn) prevrn=currn;
                 //only uncomment if you want to flatten heirarchy currn=prevrn;
             }
@@ -63,12 +64,13 @@ void generateObjectHosts(int nssv, int noh, int nobj, bool separateObjectStreams
     for (int i=0;i<noh;++i) {
         ohs.push_back((new ObjectHost(separateObjectStreams,distanceKnowledge,remoteRadiusKnowledge,localRadiusKnowledge))->id());
     }
+    resetPseudorandomUUID(3);
     generateObjects(nssv,nobj,ohs);
 }
 int main() {
     int nobj=8192;
     int nssv=128;
-    int rnwidth=3;
+    int rnwidth=1;
     int noh=512;
     bool distanceKnowledge=false;
     bool remoteRadiusKnowledge=true;
@@ -81,9 +83,12 @@ int main() {
 
     bool separateObjectStreams=true;
     BoundingBox3d3f bounds(Vector3d::nil(),Vector3d(100000.,100000.,100));
-    generateSpaceServers(bounds, nssv,toplevelgridwidth,rnwidth);
-    generateObjectHosts(nssv,noh,nobj,separateObjectStreams,distanceKnowledge,remoteRadiusKnowledge,localRadiusKnowledge);
+    resetPseudorandomUUID(1);
 
+    generateSpaceServers(bounds, nssv,toplevelgridwidth,rnwidth);
+    resetPseudorandomUUID(2);
+    generateObjectHosts(nssv,noh,nobj,separateObjectStreams,distanceKnowledge,remoteRadiusKnowledge,localRadiusKnowledge);
+    resetPseudorandomUUID(4);
     Generator *rmg=new RandomMessageGenerator;
     std::vector<Message>messages(nmsg);
     for (int i=0;i<nmsg;++i) {
