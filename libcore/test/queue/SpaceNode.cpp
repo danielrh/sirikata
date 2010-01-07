@@ -7,14 +7,17 @@
 #include "Random.hpp"
 namespace Sirikata{ namespace QueueBench {
 std::tr1::unordered_map<UUID,SpaceNode*,UUID::Hasher>gSpaceNodes;
-SpaceNode::SpaceNode(const BoundingBox3d3f & box):mBounds(box),mName(pseudorandomUUID()){
+SpaceNode::SpaceNode(const BoundingBox3d3f & box,SpaceNode*parent):mBounds(box),mName(pseudorandomUUID()){
     gSpaceNodes[id()]=this;
-    mKnownSpaceNodes=&gSpaceNodes;
+    mParent=parent;
+    if (mParent) {
+        mKnownSpaceNodes=parent->mKnownSpaceNodes;
+        assert((*mParent->mKnownSpaceNodes)[id()]!=this);
+        (*mParent->mKnownSpaceNodes)[id()]=this;//FIXME this only works for one level of RN heirharchy which is probably all we'll ever be able to simulate with this pile o' bolts
+    }else {
+        mKnownSpaceNodes=new SpaceNodeMap;
+    }
     mRNPrioritySet=false;
-}
-
-void SpaceNode::setKnownSpaceNodes(const SpaceNodeMap*snm) {
-    mKnownSpaceNodes=snm;
 }
 SpaceNode*SpaceNode::split(){
     typedef boost::uniform_int<> distribution_type;
@@ -46,7 +49,11 @@ SpaceNode*SpaceNode::split(){
                                   mBounds.max());
     }
     mBounds=oldbounds;
-    return new SpaceNode(newbounds);
+    SpaceNode *retval=new SpaceNode(newbounds,mParent);
+    if (mParent) {
+        (*mParent->mKnownSpaceNodes)[retval->id()]=this;
+    }
+    return retval;
 }
 
 Vector3d SpaceNode::randomLocation() const{
@@ -66,7 +73,7 @@ void SpaceNode::notifyNewOHMessage(const UUID&id, double priority) {
     if (where!=mActivePriorities.end()) {
         if (where->second.second<priority) {
             where->second.second=priority;
-            if (priority>where->second.first*2) {
+            if (priority>where->second.first) {
                 ///FIXME want to rebuild priority
                 //std::cout<<"Rebuilding Message Map"<<'\n';
                 mNextMessage.updatePriority(where->first,1,priority,true);
@@ -77,19 +84,75 @@ void SpaceNode::notifyNewOHMessage(const UUID&id, double priority) {
         mNextMessage.push(id,1,priority);
     }
 }
-void SpaceNode::pullFromSpaces(size_t howMany) {
+void SpaceNode::pullFromRNs(size_t howMany) {
+    size_t currentlyQueued=waitingMessagesChild();
+    if (currentlyQueued<howMany) {
+        howMany-=currentlyQueued;
+    }else howMany=0;
+    for (size_t i=0;i<howMany;++i) {
+        std::vector<UUID> saveditems;
+        size_t nearRNsSize=mNearRNs.size();
+        bool retval=false;
+        Message msg;
+        for (size_t j=0;j<nearRNsSize&&!retval;++j) {
+            UUID nearrn=mNearRNs.front();
+            mNearRNs.pop();
+            retval=gSpaceNodes[nearrn]->pullbyrn(id(),msg);
+            if(retval) {
+                saveditems.push_back(nearrn);
+            }else {
+                std::tr1::unordered_set<UUID,UUID::Hasher>::iterator where=mActiveRNs.find(nearrn);
+                if (where!=mActiveRNs.end()) {
+                    mActiveRNs.erase(where);
+                }
+            }
+            if (retval) {
+                SpaceNode *child=gSpaceNodes[oSeg[msg.dest]->spaceServerNode];
+                double priority=gPriority(msg.source,msg.dest);
+                mChildMessageQueue[child->id()].push(msg,msg.size,priority);//FIXME really prioritize that way?
+                child->notifyNewParentMessage(id(),priority);//FIXME
+            }
+        }
+        for (std::vector<UUID>::iterator iter=saveditems.begin(),itere=saveditems.end();iter!=itere;++iter) {
+            mNearRNs.push(*iter,1,gLocationPriority(bounds().center(),gSpaceNodes[*iter]->bounds().center()));
+        }
+    }
+
+}
+
+void SpaceNode::notifyNewParentMessage(const UUID& id, double priority) {
     if (!mRNPrioritySet) {
         double total=0;
         for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-            if (i->first!=id()&&mKnownSpaceNodes->find(i->first)==mKnownSpaceNodes->end()) {
-                total+=gLocationPriority(bounds().center(),i->second->bounds().center());
+            if (i->first!=this->id()&&mKnownSpaceNodes->find(i->first)==mKnownSpaceNodes->end()) {
+                if (i->second->mParent==NULL) {//only update space nodes who don't have parents
+                    total+=gLocationPriority(bounds().center(),i->second->bounds().center());
+                }
             }
         }
         if (total) {
-            mNearSpaces.push(UUID::null(),1,total);            
+            mDefaultParentPriority=total; 
         }
         mRNPrioritySet=true;
     }
+    mNearSpaces.updatePriority(id,1,mDefaultParentPriority,true);
+}
+
+bool SpaceNode::pullbychild(const UUID &childid, Message&msg) {
+    FairQueue<Message>*q=&mChildMessageQueue[childid];    
+    if (q->empty()) {
+        return false;
+    }else {
+        msg=q->front();
+        q->pop();
+        return true;
+    }
+    
+}
+
+void SpaceNode::pullFromSpaces(size_t howMany) {
+
+
     size_t currentlyQueued=waitingMessagesOH();
     if (currentlyQueued<howMany) {
         howMany-=currentlyQueued;
@@ -102,8 +165,16 @@ void SpaceNode::pullFromSpaces(size_t howMany) {
         for (size_t j=0;j<nearSpacesSize&&!retval;++j) {
             UUID nearspace=mNearSpaces.front();
             mNearSpaces.pop();
-            retval=gSpaceNodes[nearspace]->pull(id(),msg);
-            if(retval||mKnownSpaceNodes->find(nearspace)==mKnownSpaceNodes->end()) {
+            if(mParent) {
+                if (nearspace==mParent->id()) {
+                    retval=gSpaceNodes[nearspace]->pullbychild(id(),msg);
+                }else {
+                    retval=gSpaceNodes[nearspace]->pull(id(),msg);
+                }
+            }else {
+                retval=gSpaceNodes[nearspace]->pullbyparent(msg);
+            }
+            if(retval) {
                 saveditems.push_back(nearspace);
             }else {
                 std::tr1::unordered_set<UUID,UUID::Hasher>::iterator where=mActiveSpaces.find(nearspace);
@@ -112,14 +183,28 @@ void SpaceNode::pullFromSpaces(size_t howMany) {
                 }
             }
             if (retval) {
-                ObjectHost *oh=gObjectHosts[oSeg[msg.dest]->objectHost];
-                mOHMessageQueue[oh->queuePerObject()?msg.dest:oh->id()].push(msg,msg.size,gPriority(msg.source,msg.dest));
-                oh->notifyNewSpaceMessage(oh->queuePerObject()?msg.dest:id());
-                pullFromOH(1);
+                ObjectData * od=oSeg[msg.dest];
+                if (od->spaceServerNode!=id()) {
+                    //guess I'm a superserver that pulled from my children and now needs to stash it away in some queue
+                    assert(!mParent);
+                    SpaceNode* rn=gSpaceNodes[od->spaceServerNode]->mParent;
+                    mRNMessageQueue[rn->id()].push(msg,msg.size,gPriority(msg.source,msg.dest));
+                    rn->notifyNewRNMessage(id());
+                }else {
+                    assert(mParent);
+                    ObjectHost *oh=gObjectHosts[od->objectHost];
+                    mOHMessageQueue[oh->queuePerObject()?msg.dest:oh->id()].push(msg,msg.size,gPriority(msg.source,msg.dest));
+                    oh->notifyNewSpaceMessage(oh->queuePerObject()?msg.dest:id());
+                    //FIXME should be done on SpaceNodes pullFromOH(1);
+                }
             }
         }
         for (std::vector<UUID>::iterator iter=saveditems.begin(),itere=saveditems.end();iter!=itere;++iter) {
-            mNearSpaces.push(*iter,1,gLocationPriority(bounds().center(),gSpaceNodes[*iter]->bounds().center()));
+            if (mParent&&*iter==mParent->id()) {
+                mNearSpaces.push(*iter,1,mDefaultParentPriority);//FIXME parent priority adjustment
+            }else{
+                mNearSpaces.push(*iter,1,gLocationPriority(bounds().center(),gSpaceNodes[*iter]->bounds().center()));
+            }
         }
     }
 }
@@ -130,6 +215,16 @@ void SpaceNode::notifyNewSpaceMessage(const UUID&spaceId) {
         mActiveSpaces.insert(spaceId);
     }
 }
+
+void SpaceNode::notifyNewRNMessage(const UUID&spaceId) {
+    std::tr1::unordered_set<UUID,UUID::Hasher>::iterator where=mActiveRNs.find(spaceId);
+    if (where==mActiveRNs.end()) {
+        mNearRNs.push(spaceId,1,gLocationPriority(bounds().center(),gSpaceNodes[spaceId]->bounds().center()));
+        mActiveRNs.insert(spaceId);
+    }
+}
+
+
 void SpaceNode::pullFromOH(size_t howMany) {
     size_t currentlyQueued=waitingMessagesSpace();    
     if (currentlyQueued<howMany) {
@@ -142,8 +237,18 @@ void SpaceNode::pullFromOH(size_t howMany) {
             UUID spaceNodeId=oSeg[msg.dest]->spaceServerNode;//FIXME OSEG lookup
             double priority=gPriority(msg.source,msg.dest);
             if (mKnownSpaceNodes->find(spaceNodeId)==mKnownSpaceNodes->end()){
-                mRNMessageQueue.push(msg,msg.size,priority);
+                if (mParent) {
+                    static int countera=0;
+                    ++countera;
+                    mParentMessageQueue.push(msg,msg.size,priority);
+                    mParent->notifyNewSpaceMessage(id());
+                }else {
+                    assert(0);//should only be called on child space nodes
+                }
             }else {
+                    static int countera=0;
+                    ++countera;
+
                 gSpaceNodes[spaceNodeId]->notifyNewSpaceMessage(id());
                 mSpaceMessageQueue[spaceNodeId].push(msg,msg.size,priority);
             }
@@ -170,8 +275,32 @@ size_t SpaceNode::waitingMessagesSpace(){
     }
     return retval;
 }
+
+size_t SpaceNode::waitingMessagesChild(){
+    size_t retval=0;
+    for (KeyMessageQueue::iterator i=mChildMessageQueue.begin(),
+             ie=mChildMessageQueue.end();
+         i!=ie;
+         ++i) {
+        retval+=i->second.size();
+    }
+    return retval;
+}
+
 size_t SpaceNode::waitingMessagesRN(){
-    return mRNMessageQueue.size();
+    size_t retval=0;
+    for (KeyMessageQueue::iterator i=mRNMessageQueue.begin(),
+             ie=mRNMessageQueue.end();
+         i!=ie;
+         ++i) {
+        retval+=i->second.size();
+    }
+    return retval;
+}
+
+
+size_t SpaceNode::waitingMessagesParent(){
+    return mParentMessageQueue.size();
 }
 
 bool SpaceNode::pull(const UUID&space, Message&msg){
@@ -195,6 +324,29 @@ bool SpaceNode::pullbyoh(const UUID&oh, Message&msg){
         return true;
     }
 }
+
+bool SpaceNode::pullbyparent(Message&msg) {
+    if (mParentMessageQueue.empty())
+        return false;
+    static int counter=0;
+    ++counter;
+    msg=mParentMessageQueue.front();
+    mParentMessageQueue.pop();
+    return true;
+}
+
+bool SpaceNode::pullbyrn(const UUID&rn, Message&msg) {
+    FairQueue<Message>*q=&mRNMessageQueue[rn];
+    if (q->empty()) {
+        return false;
+    }else {
+        msg=q->front();
+        q->pop();
+        return true;
+    }
+}
+
+
 bool SpaceNode::pullfromoh(Message&msg) {
     std::vector<UUID> saveditems;
     size_t nextMessageSize=mNextMessage.size();

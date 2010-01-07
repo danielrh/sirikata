@@ -26,6 +26,7 @@ class ObjectHost{
     void restorePullOrder();
     void checkBookkeeping();
 public:
+    size_t objectMessageQueueSize()const;
     bool queuePerObject() const{
         return mStreamPerObject;
     }

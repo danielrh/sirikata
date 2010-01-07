@@ -50,9 +50,10 @@ template <class Message> class FairQueue {
                     i->outTime=newPriority;
                 }
                 std::make_heap(mQueue.begin(),mQueue.end());
-                break;
+                return;
             }
         }
+        push(msg,messageSize,priority);
     }
     void push(const Message& msg, size_t messageSize, double priority){
         double finish=getPriority(messageSize,priority);

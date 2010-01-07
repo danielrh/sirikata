@@ -19,7 +19,7 @@ public:
     typedef std::tr1::unordered_map<UUID,FairQueue<Message>,UUID::Hasher> MessageMap;
     MessageMap mMessages;
     void insertMessage(const Message&msg){
-        double priority=gPriority(msg.source,msg.dest);
+        double priority=standardfalloff(msg.source,msg.dest);
         MessageMap::iterator where=mMessages.find(msg.dest);
         bool newMessage=(where==mMessages.end());
         if(newMessage) {
@@ -32,7 +32,7 @@ public:
             where->second.push(msg,msg.size,priority);
         }
         if(newMessage) {
-            mObjectServicing.push(msg.dest,1,gPriority(msg.dest,msg.dest));
+            mObjectServicing.push(msg.dest,1,standardfalloff(msg.dest,msg.dest));
         }
     }
     bool popMessage(const UUID &dest, Message&msg) {
@@ -52,7 +52,7 @@ public:
             mObjectServicing.pop();
             retval= popMessage(which,msg);
             if (retval) {
-                mObjectServicing.push(which,1,gPriority(msg.dest,msg.dest));
+                mObjectServicing.push(which,1,standardfalloff(msg.dest,msg.dest));
             }
         }
         return retval;

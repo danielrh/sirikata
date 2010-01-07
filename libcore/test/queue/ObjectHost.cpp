@@ -206,10 +206,17 @@ bool ObjectHost::pullbyspace(const UUID&uuid,Message&msg){
     FairQueue<Message>*q=&mObjectMessageOrder[uuid];
     if (q->empty())
         return false;
+    static int counter=0;
     msg=q->front();
     q->pop();
     return true;
 
 }
-
+size_t ObjectHost::objectMessageQueueSize()const{
+    size_t retval=0;
+    for (std::tr1::unordered_map<UUID,FairQueue<Message>,UUID::Hasher >::const_iterator i=mObjectMessageOrder.begin(),ie=mObjectMessageOrder.end();i!=ie;++i) {
+        retval+=i->second.size();
+    }
+    return retval;
+}
 } }
