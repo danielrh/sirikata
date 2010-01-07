@@ -8,9 +8,11 @@ template <class Message> class FairQueue {
     public:
         Message msg;
         double outTime;
-        MessagePriority(const Message&msg, double ttl) {
+        double priority;
+        MessagePriority(const Message&msg, double ttl, double priority) {
             this->msg=msg;
             this->outTime=ttl;
+            this->priority=priority;
         }
         bool operator<(const MessagePriority &other) const{
             if (!(outTime>other.outTime)) {
@@ -36,6 +38,23 @@ template <class Message> class FairQueue {
         return finish;
     }
   public:
+    void sort() {
+        std::sort_heap(mQueue.begin(),mQueue.end());        
+    }
+    typedef typename std::vector<MessagePriority>::iterator iterator;
+    typedef typename std::vector<MessagePriority>::const_iterator const_iterator;
+    iterator begin(){
+        return mQueue.begin();
+    }
+    const_iterator begin()const{
+        return mQueue.begin();
+    }
+    const_iterator end()const{
+        return mQueue.end();
+    }
+    iterator end() {
+        return mQueue.end();
+    }
     FairQueue() {
         mNow=0;
     }
@@ -48,6 +67,7 @@ template <class Message> class FairQueue {
                 double newPriority=getPriority(messageSize,priority);
                 if (i->outTime>newPriority||!onlyIfBetter) {
                     i->outTime=newPriority;
+                    i->priority=priority;
                 }
                 std::make_heap(mQueue.begin(),mQueue.end());
                 return;
@@ -57,7 +77,7 @@ template <class Message> class FairQueue {
     }
     void push(const Message& msg, size_t messageSize, double priority){
         double finish=getPriority(messageSize,priority);
-        mQueue.push_back(MessagePriority(msg,finish));
+        mQueue.push_back(MessagePriority(msg,finish,priority));
         std::push_heap(mQueue.begin(),mQueue.end());
     }
     bool empty() const{

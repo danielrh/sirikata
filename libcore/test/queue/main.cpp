@@ -67,6 +67,85 @@ void generateObjectHosts(int nssv, int noh, int nobj, bool separateObjectStreams
     resetPseudorandomUUID(3);
     generateObjects(nssv,nobj,ohs);
 }
+std::multimap<double,int> finalMessageOrder;
+std::multimap<double,int> oracleMessageOrder;
+int messageCount=0;
+int gOhQueueSize;//var read in main options
+int gSpaceQueueSize;//var read in main options
+bool loop() {
+
+    for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
+        if (i->second->hasParent()) {
+            i->second->pullFromOH(gOhQueueSize);
+        }else {
+            i->second->pullFromSpaces(gOhQueueSize);
+        }
+    }
+
+    for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
+        if (i->second->hasParent()) {
+            i->second->pullFromSpaces(gSpaceQueueSize);
+        }else{
+            i->second->pullFromRNs(gSpaceQueueSize);
+        }
+    }
+
+    bool nonepulled=true;
+    for (std::tr1::unordered_map<UUID,ObjectHost*,UUID::Hasher>::iterator j=gObjectHosts.begin(),je=gObjectHosts.end();
+         j!=je;
+         ++j) {
+        Message msg;
+        if (j->second->pull(msg)) {
+            finalMessageOrder.insert(std::multimap<double,int>::value_type(-standardfalloff(msg.source,msg.dest),messageCount++));
+            nonepulled=false;           
+        }
+    }
+    if (nonepulled&&finalMessageOrder.size()<oracleMessageOrder.size()) {
+        for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
+            size_t a,b,c,d;
+            a=i->second->waitingMessagesOH();
+            b=i->second->waitingMessagesSpace();
+            c=i->second->waitingMessagesRN();
+            d=i->second->waitingMessagesChild();
+            if (a||b||c||d) {
+                std::cerr<<"q "<<a<<' '<<b<<' '<<c<< ' '<<d<<'\n';
+            }
+        }
+        
+        for (std::tr1::unordered_map<UUID,ObjectHost*,UUID::Hasher>::iterator i=gObjectHosts.begin(),ie=gObjectHosts.end();i!=ie;++i) {
+            size_t a=i->second->objectMessageQueueSize();
+            if (a) {
+                std::cerr<<"h "<<a<<'\n';
+            }
+        }
+        static bool said=false;
+        if (!said) {
+            std::cerr<<"Fatal error"<<'\n';
+            said=true;
+        }
+        
+    }
+    if(finalMessageOrder.size()==oracleMessageOrder.size()) {
+        int64 totalError=0;
+        std::map<double,int>::iterator iter=finalMessageOrder.begin();
+        for (size_t i=0;i<finalMessageOrder.size();++i,++iter) {
+            int64 diff=i-iter->second;
+            if (oracleMessageOrder.find(iter->first)!=oracleMessageOrder.end()) {
+                diff=oracleMessageOrder.find(iter->first)->second-iter->second;
+        }else {
+                std::cout<<"Oracle failed to deliver message "<<iter->first<<"'\n";
+            }
+            if (diff) {
+                //std::cout<<"Diffd "<<diff<<"'\n";
+            }
+            if (diff<0) diff=-diff;
+            totalError+=diff;
+        }
+        std::cout<<"Total error: "<<totalError<<'\n';
+        return false;
+    }
+    return true;
+}
 int main() {
     int nobj=8192;
     int nssv=128;
@@ -80,7 +159,8 @@ int main() {
     int toplevelgridwidth=6;
     int nmsg=/*1024*1024;*/ohQueueSize*noh;
 
-
+    gOhQueueSize=ohQueueSize;
+    gSpaceQueueSize=spaceQueueSize;
     bool separateObjectStreams=true;
     BoundingBox3d3f bounds(Vector3d::nil(),Vector3d(100000.,100000.,100));
     resetPseudorandomUUID(1);
@@ -96,8 +176,6 @@ int main() {
     }
 
 
-    std::map<double,int> finalMessageOrder;
-    std::map<double,int> oracleMessageOrder;
     if (true) {
         OracleOHMessageQueue omq;
         for (int i=0;i<nmsg;++i) {
@@ -119,99 +197,17 @@ int main() {
             }
 
             lastPriority=priority;
-            oracleMessageOrder[-priority]=i;
+            oracleMessageOrder.insert(std::multimap<double,int>::value_type(-priority,i));
             //std::cout<<gPriority(msg.source,msg.dest)<<std::endl;
             ++i;
         }
     }
-    if (true) {
-        for (int i=0;i<nmsg;++i) {
-            gObjectHosts[oSeg[messages[i].source]->objectHost]->insertMessage(messages[i]);
-        }
-        for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-            if (i->second->hasParent()) {
-                i->second->pullFromOH(ohQueueSize);
-            }else {
-                i->second->pullFromSpaces(ohQueueSize);
-            }
-        }
-        for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-            if (i->second->hasParent()){
-                i->second->pullFromSpaces(spaceQueueSize);
-            }else{
-                i->second->pullFromRNs(spaceQueueSize);
-            }
-        }
-        for (int i=0;i<nmsg;) {
-            Message msg;
-            bool nonepulled=true;
-            for (std::tr1::unordered_map<UUID,ObjectHost*,UUID::Hasher>::iterator j=gObjectHosts.begin(),je=gObjectHosts.end();
-                 j!=je;
-                 ++j) {
-                if (j->second->pull(msg)) {
-                    finalMessageOrder[-standardfalloff(msg.source,msg.dest)]=i;
-                    nonepulled=false;
-                    ++i;
-                }
-            }
-            {
-                for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-                    if (i->second->hasParent()) {
-                        i->second->pullFromOH(ohQueueSize);
-                    }else {
-                        i->second->pullFromSpaces(ohQueueSize);
-                    }
-                }
-                for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-                    if (i->second->hasParent()) {
-                        i->second->pullFromSpaces(spaceQueueSize);
-                    }else{
-                        i->second->pullFromRNs(spaceQueueSize);
-                    }
-                }
-            }
-            if (nonepulled&&i<nmsg) {
-                for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
-                    size_t a,b,c,d;
-                    a=i->second->waitingMessagesOH();
-                    b=i->second->waitingMessagesSpace();
-                    c=i->second->waitingMessagesRN();
-                    d=i->second->waitingMessagesChild();
-                    if (a||b||c||d) {
-                        std::cerr<<"q "<<a<<' '<<b<<' '<<c<< ' '<<d<<'\n';
-                    }
-                }
+    for (int i=0;i<nmsg;++i) {
+        gObjectHosts[oSeg[messages[i].source]->objectHost]->insertMessage(messages[i]);
+    }
+    
+    while(loop()) {
 
-                for (std::tr1::unordered_map<UUID,ObjectHost*,UUID::Hasher>::iterator i=gObjectHosts.begin(),ie=gObjectHosts.end();i!=ie;++i) {
-                    size_t a=i->second->objectMessageQueueSize();
-                    if (a) {
-                        std::cerr<<"h "<<a<<'\n';
-                    }
-                }
-                static bool said=false;
-                if (!said) {
-                    std::cerr<<"Fatal error"<<'\n';
-                    said=true;
-                }
-                
-            }
-        }
     }
-    int64 totalError=0;
-    std::map<double,int>::iterator iter=finalMessageOrder.begin();
-    for (size_t i=0;i<finalMessageOrder.size();++i,++iter) {
-        int64 diff=i-iter->second;
-        if (oracleMessageOrder.find(iter->first)!=oracleMessageOrder.end()) {
-            diff=oracleMessageOrder[iter->first]-iter->second;
-        }else {
-            std::cout<<"Oracle failed to deliver message "<<iter->first<<"'\n";
-        }
-        if (diff) {
-            //std::cout<<"Diffd "<<diff<<"'\n";
-        }
-        if (diff<0) diff=-diff;
-        totalError+=diff;
-    }
-    std::cout<<"Total error: "<<totalError<<'\n';
     return 0;
 }
