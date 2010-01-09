@@ -7,7 +7,7 @@ public:
     virtual ~Generator(){}
 };
 class RandomMessageGenerator:public Generator{
-    int64 mTimeStamp;
+    int64 mUID;
 public:
     RandomMessageGenerator();
     virtual Message generate(const UUID & objectID);

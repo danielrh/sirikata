@@ -4,6 +4,16 @@
 #include "OSeg.hpp"
 #include <cmath>
 namespace Sirikata { namespace QueueBench {
+bool MessagePriority::operator() (const Message&a, const Message&b)const {
+    double aprior=mPriority(a.source,a.dest);
+    double bprior=mPriority(b.source,b.dest);
+    if (aprior>bprior)
+        return true;
+    if (aprior<bprior)
+        return false;
+    return a.uid<b.uid;
+}
+
 double oonnlgnlgn(const Vector3d &a, const Vector3d b) {
     double distance=(a-b).length();
     if (distance<2) distance=2;

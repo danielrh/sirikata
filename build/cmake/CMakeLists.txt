@@ -1461,6 +1461,7 @@ ADD_EXECUTABLE(${QUEUE_BINARY}
   ${TOP_LEVEL}/libcore/test/queue/SpaceNode.cpp
   ${TOP_LEVEL}/libcore/test/queue/ObjectHost.cpp
   ${TOP_LEVEL}/libcore/test/queue/Priority.cpp 
+  ${TOP_LEVEL}/libcore/test/queue/Evaluation.cpp 
 # ${TOP_LEVEL}/libcore/test/queue/OracleMessageGenerator.cpp
   )
 ADD_EXECUTABLE(${SPACE_BINARY} ${SPACE_SOURCES})

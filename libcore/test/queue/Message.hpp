@@ -6,13 +6,13 @@ class Message {
 public:
     UUID dest;
     UUID source;
-    int64 timeStamp;
+    int64 uid;
     size_t size;
     bool operator<(const Message &other) const{
-        return timeStamp<other.timeStamp;
+        return uid<other.uid;
     }
     bool operator>(const Message &other) const{
-        return timeStamp>other.timeStamp;
+        return uid>other.uid;
     }
 
 };

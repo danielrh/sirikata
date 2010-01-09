@@ -7,6 +7,7 @@
 #include "OracleMessageQueue.hpp"
 #include "OracleOHMessageQueue.hpp"
 #include "Random.hpp"
+#include "Evaluation.hpp"
 using namespace Sirikata;
 using namespace Sirikata::QueueBench;
 void generateSpaceServers(const BoundingBox3d3f&bounds,int num,int width, int rnwidth) {
@@ -67,8 +68,9 @@ void generateObjectHosts(int nssv, int noh, int nobj, bool separateObjectStreams
     resetPseudorandomUUID(3);
     generateObjects(nssv,nobj,ohs);
 }
-std::multimap<double,int> finalMessageOrder;
-std::multimap<double,int> oracleMessageOrder;
+MessagePriorityMap finalMessageOrder=MessagePriorityMap(MessagePriority(standardfalloff));
+MessagePriorityMap oracleMessageOrder=MessagePriorityMap(MessagePriority(standardfalloff));
+std::vector<Message>messages;
 int messageCount=0;
 int gOhQueueSize;//var read in main options
 int gSpaceQueueSize;//var read in main options
@@ -96,11 +98,11 @@ bool loop() {
          ++j) {
         Message msg;
         if (j->second->pull(msg)) {
-            finalMessageOrder.insert(std::multimap<double,int>::value_type(-standardfalloff(msg.source,msg.dest),messageCount++));
+            finalMessageOrder.insert(MessagePriorityMap::value_type(msg,messageCount--));
             nonepulled=false;           
         }
     }
-    if (nonepulled&&finalMessageOrder.size()<oracleMessageOrder.size()) {
+    if (nonepulled&&messageCount>0) {
         for (SpaceNodeMap::iterator i=gSpaceNodes.begin(),ie=gSpaceNodes.end();i!=ie;++i) {
             size_t a,b,c,d;
             a=i->second->waitingMessagesOH();
@@ -125,23 +127,9 @@ bool loop() {
         }
         
     }
-    if(finalMessageOrder.size()==oracleMessageOrder.size()) {
-        int64 totalError=0;
-        std::map<double,int>::iterator iter=finalMessageOrder.begin();
-        for (size_t i=0;i<finalMessageOrder.size();++i,++iter) {
-            int64 diff=i-iter->second;
-            if (oracleMessageOrder.find(iter->first)!=oracleMessageOrder.end()) {
-                diff=oracleMessageOrder.find(iter->first)->second-iter->second;
-        }else {
-                std::cout<<"Oracle failed to deliver message "<<iter->first<<"'\n";
-            }
-            if (diff) {
-                //std::cout<<"Diffd "<<diff<<"'\n";
-            }
-            if (diff<0) diff=-diff;
-            totalError+=diff;
-        }
-        std::cout<<"Total error: "<<totalError<<'\n';
+    if(messageCount<=0) {
+
+        evaluateError(messages,finalMessageOrder,oracleMessageOrder,30,false);
         return false;
     }
     return true;
@@ -157,8 +145,8 @@ int main() {
     int ohQueueSize=128;
     int spaceQueueSize=128;
     int toplevelgridwidth=6;
-    int nmsg=/*1024*1024;*/ohQueueSize*noh;
-
+    int nmsg=/*1024*1024;*/ohQueueSize*noh*16;
+    messageCount=nmsg/16;
     gOhQueueSize=ohQueueSize;
     gSpaceQueueSize=spaceQueueSize;
     bool separateObjectStreams=true;
@@ -170,7 +158,7 @@ int main() {
     generateObjectHosts(nssv,noh,nobj,separateObjectStreams,distanceKnowledge,remoteRadiusKnowledge,localRadiusKnowledge);
     resetPseudorandomUUID(4);
     Generator *rmg=new RandomMessageGenerator;
-    std::vector<Message>messages(nmsg);
+    messages.resize(nmsg);
     for (int i=0;i<nmsg;++i) {
         messages[i]=rmg->generate(oSeg.random());
     }
@@ -184,7 +172,7 @@ int main() {
         Message msg;
         int i=0;
         double lastPriority=1.e38;
-        while(omq.popMessage(msg)) {
+        for (int index=0;index<messageCount&&omq.popMessage(msg);++index) {
             double priority=standardfalloff(msg.source,msg.dest);
             if (priority>lastPriority) {
                 //printf ("Priority Error %.40f vs %.40f\n",priority,lastPriority);
@@ -197,7 +185,7 @@ int main() {
             }
 
             lastPriority=priority;
-            oracleMessageOrder.insert(std::multimap<double,int>::value_type(-priority,i));
+            oracleMessageOrder.insert(MessagePriorityMap::value_type(msg,i));
             //std::cout<<gPriority(msg.source,msg.dest)<<std::endl;
             ++i;
         }

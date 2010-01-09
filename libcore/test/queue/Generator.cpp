@@ -6,7 +6,7 @@
 namespace Sirikata { namespace QueueBench {
 bool gNoLatePush=true;
 RandomMessageGenerator::RandomMessageGenerator() {
-    mTimeStamp=0;
+    mUID=0;
 }
 Message RandomMessageGenerator::generate(const UUID&source) {
     UUID dest=oSeg.random();
@@ -14,7 +14,7 @@ Message RandomMessageGenerator::generate(const UUID&source) {
     retval.dest=dest;
     retval.source=source;
     retval.size=1;
-    retval.timeStamp=mTimeStamp++;
+    retval.uid=mUID++;
     return retval;
 }
 
