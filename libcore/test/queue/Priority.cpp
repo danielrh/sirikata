@@ -16,6 +16,7 @@ bool MessagePriority::operator() (const Message&a, const Message&b)const {
 
 double oonnlgnlgn(const Vector3d &a, const Vector3d b) {
     double distance=(a-b).length();
+    //return 1./distance;
     if (distance<2) distance=2;
     double lgdistance=std::log(distance);
     double dlgd=distance*lgdistance/10000;

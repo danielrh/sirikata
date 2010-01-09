@@ -8,7 +8,8 @@
 #include "Random.hpp"
 namespace Sirikata { namespace QueueBench {
 std::tr1::unordered_map<UUID,ObjectHost*,UUID::Hasher>gObjectHosts;
-ObjectHost::ObjectHost(bool streamPerObject,bool distanceKnowledge,bool remoteRadiusKnowledge,bool localRadiusKnowledge):mName(pseudorandomUUID()) {
+ObjectHost::ObjectHost(bool streamPerObject,bool distanceKnowledge,bool remoteRadiusKnowledge,bool localRadiusKnowledge, bool objectMessageQueueIsFair):mName(pseudorandomUUID()),mPullOrder(true) {
+    mObjectMessageQueueIsFair=objectMessageQueueIsFair;
     gObjectHosts[mName]=this;       
     mStreamPerObject=streamPerObject;
     mLocalObjectRadiusKnowledge=localRadiusKnowledge;
@@ -118,7 +119,6 @@ bool ObjectHost::pull(Message&msg){
     SpaceNode*ss=NULL;
     if (mStreamPerObject) {
 
-        FairQueue<UUID> preBookkeeping;        
         size_t pullOrderSize=mPullOrder.size();
         for(i=0;i<pullOrderSize&&!retval;++i) {   
             UUID objid= mPullOrder.front();
@@ -189,21 +189,30 @@ double ObjectHost::ohMessagePriority(const Message&msg){
 void ObjectHost::insertMessage (const Message&msg){
     UUID sserver=oSeg[msg.source]->spaceServerNode;
     UUID name=mStreamPerObject?msg.source:sserver;
-    FairQueue<Message>*q=&mObjectMessageOrder[name];
+    FairQueue<Message>*q=getObjectMessageOrder(name);
     q->push(msg,msg.size,ohMessagePriority(msg));
     gSpaceNodes[sserver]->notifyNewOHMessage(mStreamPerObject?msg.source:oSeg[msg.source]->objectHost,ohMessagePriority(q->front()));
 }
 
 bool ObjectHost::getPriority(const UUID&uuid,double&priority) {
-    FairQueue<Message>*q=&mObjectMessageOrder[uuid];
+    FairQueue<Message>*q=getObjectMessageOrder(uuid);
     if (q->empty())
         return false;
     priority=ohMessagePriority(q->front());
     return true;
 
 }
+FairQueue<Message>*ObjectHost::getObjectMessageOrder(const UUID&name){
+    std::tr1::unordered_map<UUID,FairQueue<Message>,UUID::Hasher >::iterator where=mObjectMessageOrder.find(name);
+    if (where==mObjectMessageOrder.end()) {
+        mObjectMessageOrder.insert(std::tr1::unordered_map<UUID,FairQueue<Message>,UUID::Hasher >::value_type(name,FairQueue<Message>(mObjectMessageQueueIsFair)));
+        where=mObjectMessageOrder.find(name);
+    }
+    return &where->second;
+}
+
 bool ObjectHost::pullbyspace(const UUID&uuid,Message&msg){
-    FairQueue<Message>*q=&mObjectMessageOrder[uuid];
+    FairQueue<Message>*q=getObjectMessageOrder(uuid);
     if (q->empty())
         return false;
     static int counter=0;

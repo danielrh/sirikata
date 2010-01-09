@@ -6,7 +6,7 @@
 namespace Sirikata { namespace QueueBench {
 class OracleMessageQueue{
 public:
-    OracleMessageQueue() {
+    OracleMessageQueue():mMessages(true/*isFair*/) {
     }
     FairQueue<Message> mMessages;
     void insertMessage(const Message&msg){

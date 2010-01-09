@@ -7,7 +7,7 @@ namespace Sirikata { namespace QueueBench {
 class OracleOHMessageQueue{
     FairQueue<UUID> mObjectServicing;
 public:
-    OracleOHMessageQueue() {
+    OracleOHMessageQueue():mObjectServicing(true/*fair*/) {
         size_t i;
         size_t size=oSeg.mUUIDs.size();
         for(i=0;i<size;++i) {
@@ -24,7 +24,13 @@ public:
         bool newMessage=(where==mMessages.end());
         if(newMessage) {
             ObjectData *od=oSeg[msg.dest];
-            mMessages[msg.dest].push(msg,msg.size,priority);
+            MessageMap::iterator where=mMessages.find(msg.dest);
+            if (where==mMessages.end()) {
+                mMessages.insert(MessageMap::value_type(msg.dest,FairQueue<Message>(true)));
+                where=mMessages.find(msg.dest);
+            }
+            where->second.push(msg,msg.size,priority);
+
         }else {
             if (where->second.empty()) {
                 newMessage=true;
@@ -36,7 +42,11 @@ public:
         }
     }
     bool popMessage(const UUID &dest, Message&msg) {
-        FairQueue<Message>* cur=&mMessages[dest];
+        MessageMap::iterator where=mMessages.find(dest);
+        if (where==mMessages.end()) {
+            return false;
+        }
+        FairQueue<Message>* cur=&where->second;
         if (cur->empty())
             return false;
         msg=cur->front();

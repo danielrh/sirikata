@@ -14,6 +14,7 @@ class SpaceNode  {
     SpaceNodeMap*mKnownSpaceNodes;
 
     typedef std::tr1::unordered_map<UUID,FairQueue<Message>,UUID::Hasher > KeyMessageQueue;
+    FairQueue<Message>&getQueueByUUID(KeyMessageQueue&q, const UUID&uuid);
     KeyMessageQueue mOHMessageQueue;
     KeyMessageQueue mSpaceMessageQueue;
     KeyMessageQueue mRNMessageQueue;
@@ -24,6 +25,7 @@ class SpaceNode  {
     FairQueue<UUID> mNearSpaces;
     FairQueue<UUID> mNearRNs;
     bool mRNPrioritySet;
+    bool mResortMessageQueues;
     double mDefaultParentPriority;
 public:
     size_t waitingMessagesOH();
@@ -34,7 +36,7 @@ public:
     const UUID&id() {
         return mName;
     }
-    SpaceNode(const BoundingBox3d3f & box, SpaceNode* parent);
+    SpaceNode(const BoundingBox3d3f & box, SpaceNode* parent, bool resortMessageQueues);
     ///Either saved in the resource node or the global var--not responsible for allocation/deallocation
 
     SpaceNode*split();

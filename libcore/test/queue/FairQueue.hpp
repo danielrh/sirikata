@@ -23,8 +23,9 @@ template <class Message> class FairQueue {
             return outTime>other.outTime;
         }
     };
-    std::vector<MessagePriority> mQueue;
+    std::deque<MessagePriority> mQueue;
     double mNow;
+    bool mIsFair;
     double getPriority(size_t messageSize, double priority) {
         double finish=mNow+messageSize/priority;
         if (finish<mNow) {
@@ -39,10 +40,14 @@ template <class Message> class FairQueue {
     }
   public:
     void sort() {
-        std::sort_heap(mQueue.begin(),mQueue.end());        
+        if (mIsFair) {
+            std::sort_heap(mQueue.begin(),mQueue.end());        
+        }else {
+            std::sort(mQueue.begin(),mQueue.end());        
+        }
     }
-    typedef typename std::vector<MessagePriority>::iterator iterator;
-    typedef typename std::vector<MessagePriority>::const_iterator const_iterator;
+    typedef typename std::deque<MessagePriority>::iterator iterator;
+    typedef typename std::deque<MessagePriority>::const_iterator const_iterator;
     iterator begin(){
         return mQueue.begin();
     }
@@ -55,21 +60,24 @@ template <class Message> class FairQueue {
     iterator end() {
         return mQueue.end();
     }
-    FairQueue() {
+    FairQueue(bool isFair) {
         mNow=0;
+        mIsFair=isFair;
     }
     bool nothingPopped(){
         return mNow==0;
     }
     void updatePriority(const Message&msg,size_t messageSize, double priority, bool onlyIfBetter=false){
-        for (typename std::vector<MessagePriority>::iterator i=mQueue.begin(),ie=mQueue.end();i!=ie;++i) {
+        for (typename std::deque<MessagePriority>::iterator i=mQueue.begin(),ie=mQueue.end();i!=ie;++i) {
             if (i->msg==msg) {
                 double newPriority=getPriority(messageSize,priority);
                 if (i->outTime>newPriority||!onlyIfBetter) {
                     i->outTime=newPriority;
                     i->priority=priority;
                 }
-                std::make_heap(mQueue.begin(),mQueue.end());
+                if (mIsFair) {
+                    std::make_heap(mQueue.begin(),mQueue.end());
+                }
                 return;
             }
         }
@@ -78,7 +86,9 @@ template <class Message> class FairQueue {
     void push(const Message& msg, size_t messageSize, double priority){
         double finish=getPriority(messageSize,priority);
         mQueue.push_back(MessagePriority(msg,finish,priority));
-        std::push_heap(mQueue.begin(),mQueue.end());
+        if (mIsFair) {
+            std::push_heap(mQueue.begin(),mQueue.end());
+        }
     }
     bool empty() const{
         return mQueue.empty();
@@ -95,8 +105,12 @@ template <class Message> class FairQueue {
     }
     void pop() {
         mNow=mQueue.front().outTime;
-        std::pop_heap(mQueue.begin(),mQueue.end());
-        mQueue.pop_back();
+        if (mIsFair) {
+            std::pop_heap(mQueue.begin(),mQueue.end());
+            mQueue.pop_back();
+        }else {
+            mQueue.pop_front();
+        }
     }
 };
 } }

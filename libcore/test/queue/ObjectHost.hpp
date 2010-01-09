@@ -6,11 +6,13 @@ namespace Sirikata { namespace QueueBench {
 class ObjectHost{
     double mCurrentPriority;
     std::tr1::unordered_map<UUID,FairQueue<Message>,UUID::Hasher > mObjectMessageOrder;
+    FairQueue<Message>*getObjectMessageOrder(const UUID&name);
     UUID mName;
     bool mStreamPerObject;
     bool mDistanceKnowledge;
     bool mRemoteObjectRadiusKnowledge;
     bool mLocalObjectRadiusKnowledge;
+    bool mObjectMessageQueueIsFair;
     size_t mRestoredPullOrder;
     typedef std::tr1::unordered_set<UUID,UUID::Hasher> ObjectSet;
     ObjectSet mObjects;
@@ -37,7 +39,7 @@ public:
     void insertMessage (const Message&msg);
     template <class Container> void restorePullOrder(const Container &cont);
     ///If streamPerObject false then it assumes a stream per spacenode
-    ObjectHost(bool streamPerObject, bool distanceKnowledge,  bool remoteRadiusKnowledge, bool localRadiusKnowledge=true);
+    ObjectHost(bool streamPerObject, bool distanceKnowledge,  bool remoteRadiusKnowledge, bool localRadiusKnowledge, bool objectMessageQueueIsFair);
     void addObject(const UUID&);
     bool pull(const UUID &, Message&);
     bool pull(Message&);

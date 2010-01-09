@@ -10,20 +10,20 @@
 #include "Evaluation.hpp"
 using namespace Sirikata;
 using namespace Sirikata::QueueBench;
-void generateSpaceServers(const BoundingBox3d3f&bounds,int num,int width, int rnwidth) {
+void generateSpaceServers(const BoundingBox3d3f&bounds,int num,int width, int rnwidth, bool resort_message_queues) {
     std::vector<UUID> servers;
     int rnratio=width/rnwidth;
     SpaceNode* currn=NULL;
     SpaceNode* prevrn=NULL;
     for (int i=0;i<width;++i) {
         for (int j=0;j<width;++j) {
-            SpaceNode*hypotheticalParent=new SpaceNode(BoundingBox3d3f(bounds.min()+Vector3d(bounds.across().x*(i/(double)rnwidth),bounds.across().y*(j/(double)rnwidth),0.0),bounds.min()+Vector3d(bounds.across().x*((i+1)/(double)rnwidth),bounds.across().y*((j+1)/(double)rnwidth),bounds.across().z)),NULL);
+            SpaceNode*hypotheticalParent=new SpaceNode(BoundingBox3d3f(bounds.min()+Vector3d(bounds.across().x*(i/(double)rnwidth),bounds.across().y*(j/(double)rnwidth),0.0),bounds.min()+Vector3d(bounds.across().x*((i+1)/(double)rnwidth),bounds.across().y*((j+1)/(double)rnwidth),bounds.across().z)),NULL,resort_message_queues);
             if (i%rnratio==0&&j%rnratio==0) {
                 servers.push_back((currn=hypotheticalParent)->id());
                 if (!prevrn) prevrn=currn;
                 //only uncomment if you want to flatten heirarchy currn=prevrn;
             }
-            servers.push_back((new SpaceNode(BoundingBox3d3f(bounds.min()+Vector3d(bounds.across().x*(i/(double)width),bounds.across().y*(j/(double)width),0.0),bounds.min()+Vector3d(bounds.across().x*((i+1)/(double)width),bounds.across().y*((j+1)/(double)width),bounds.across().z)),currn))->id());
+            servers.push_back((new SpaceNode(BoundingBox3d3f(bounds.min()+Vector3d(bounds.across().x*(i/(double)width),bounds.across().y*(j/(double)width),0.0),bounds.min()+Vector3d(bounds.across().x*((i+1)/(double)width),bounds.across().y*((j+1)/(double)width),bounds.across().z)),currn,resort_message_queues))->id());
             
         }
     }
@@ -41,7 +41,8 @@ double randomObjectSize() {
     boost::uniform_real<> uni_dist(0,1);
     boost::variate_generator<base_generator_type&, boost::uniform_real<> > uni(generator, uni_dist);
 
-    double size= uni();
+    double size= /*sqrt*/(uni());
+    return size;
     size*=size;
     size*=size;
     return size;
@@ -60,10 +61,10 @@ void generateObjects(int nss, int nobj,const std::vector<UUID> &objectHosts) {
         }
     }
 }
-void generateObjectHosts(int nssv, int noh, int nobj, bool separateObjectStreams,bool distanceKnowledge,bool remoteRadiusKnowledge,bool localRadiusKnowledge) {
+void generateObjectHosts(int nssv, int noh, int nobj, bool separateObjectStreams,bool distanceKnowledge,bool remoteRadiusKnowledge,bool localRadiusKnowledge, bool objectMessageQueueIsFair) {
     std::vector<UUID> ohs;
     for (int i=0;i<noh;++i) {
-        ohs.push_back((new ObjectHost(separateObjectStreams,distanceKnowledge,remoteRadiusKnowledge,localRadiusKnowledge))->id());
+        ohs.push_back((new ObjectHost(separateObjectStreams,distanceKnowledge,remoteRadiusKnowledge,localRadiusKnowledge,objectMessageQueueIsFair))->id());
     }
     resetPseudorandomUUID(3);
     generateObjects(nssv,nobj,ohs);
@@ -129,7 +130,8 @@ bool loop() {
     }
     if(messageCount<=0) {
 
-        evaluateError(messages,finalMessageOrder,oracleMessageOrder,30,false);
+        evaluateError(messages,finalMessageOrder,oracleMessageOrder,100,false);
+        evaluateError(messages,oracleMessageOrder,oracleMessageOrder,30,false);
         return false;
     }
     return true;
@@ -145,6 +147,8 @@ int main() {
     int ohQueueSize=128;
     int spaceQueueSize=128;
     int toplevelgridwidth=6;
+    bool objectMessageQueueIsFair=false;
+    bool space_message_queues_is_fair=true;
     int nmsg=/*1024*1024;*/ohQueueSize*noh*16;
     messageCount=nmsg/16;
     gOhQueueSize=ohQueueSize;
@@ -153,9 +157,9 @@ int main() {
     BoundingBox3d3f bounds(Vector3d::nil(),Vector3d(100000.,100000.,100));
     resetPseudorandomUUID(1);
 
-    generateSpaceServers(bounds, nssv,toplevelgridwidth,rnwidth);
+    generateSpaceServers(bounds, nssv,toplevelgridwidth,rnwidth,space_message_queues_is_fair);
     resetPseudorandomUUID(2);
-    generateObjectHosts(nssv,noh,nobj,separateObjectStreams,distanceKnowledge,remoteRadiusKnowledge,localRadiusKnowledge);
+    generateObjectHosts(nssv,noh,nobj,separateObjectStreams,distanceKnowledge,remoteRadiusKnowledge,localRadiusKnowledge,objectMessageQueueIsFair);
     resetPseudorandomUUID(4);
     Generator *rmg=new RandomMessageGenerator;
     messages.resize(nmsg);
@@ -165,7 +169,7 @@ int main() {
 
 
     if (true) {
-        OracleOHMessageQueue omq;
+        OracleMessageQueue omq;
         for (int i=0;i<nmsg;++i) {
             omq.insertMessage(messages[i]);
         }

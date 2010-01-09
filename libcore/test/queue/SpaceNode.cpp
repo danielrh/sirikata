@@ -7,7 +7,8 @@
 #include "Random.hpp"
 namespace Sirikata{ namespace QueueBench {
 std::tr1::unordered_map<UUID,SpaceNode*,UUID::Hasher>gSpaceNodes;
-SpaceNode::SpaceNode(const BoundingBox3d3f & box,SpaceNode*parent):mBounds(box),mName(pseudorandomUUID()){
+SpaceNode::SpaceNode(const BoundingBox3d3f & box,SpaceNode*parent, bool resort_message_queues):mBounds(box),mName(pseudorandomUUID()),mNextChild(true),mNextMessage(true),mParentMessageQueue(resort_message_queues),mNearSpaces(true),mNearRNs(true){
+    mResortMessageQueues=resort_message_queues;
     gSpaceNodes[id()]=this;
     mParent=parent;
     if (mParent) {
@@ -49,7 +50,7 @@ SpaceNode*SpaceNode::split(){
                                   mBounds.max());
     }
     mBounds=oldbounds;
-    SpaceNode *retval=new SpaceNode(newbounds,mParent);
+    SpaceNode *retval=new SpaceNode(newbounds,mParent,mResortMessageQueues);
     if (mParent) {
         (*mParent->mKnownSpaceNodes)[retval->id()]=this;
     }
@@ -67,7 +68,15 @@ Vector3d SpaceNode::randomLocation() const{
                                   mBounds.diag().z*zm);
                                   
 }
+FairQueue<Message>&SpaceNode::getQueueByUUID(KeyMessageQueue&q, const UUID&uuid){
+    KeyMessageQueue::iterator where=q.find(uuid);
+    if (where==q.end()) {
+        q.insert(KeyMessageQueue::value_type(uuid,FairQueue<Message>(mResortMessageQueues)));
+        where=q.find(uuid);
+    }
+    return where->second;
 
+}
 void SpaceNode::notifyNewOHMessage(const UUID&id, double priority) {
     PriorityMap::iterator where=mActivePriorities.find(id);
     if (where!=mActivePriorities.end()) {
@@ -109,7 +118,7 @@ void SpaceNode::pullFromRNs(size_t howMany) {
             if (retval) {
                 SpaceNode *child=gSpaceNodes[oSeg[msg.dest]->spaceServerNode];
                 double priority=gPriority(msg.source,msg.dest);
-                mChildMessageQueue[child->id()].push(msg,msg.size,priority);//FIXME really prioritize that way?
+                getQueueByUUID(mChildMessageQueue,child->id()).push(msg,msg.size,priority);//FIXME really prioritize that way?
                 child->notifyNewParentMessage(id(),priority);//FIXME
             }
         }
@@ -139,7 +148,7 @@ void SpaceNode::notifyNewParentMessage(const UUID& id, double priority) {
 }
 
 bool SpaceNode::pullbychild(const UUID &childid, Message&msg) {
-    FairQueue<Message>*q=&mChildMessageQueue[childid];    
+    FairQueue<Message>*q=&getQueueByUUID(mChildMessageQueue,childid);    
     if (q->empty()) {
         return false;
     }else {
@@ -188,12 +197,12 @@ void SpaceNode::pullFromSpaces(size_t howMany) {
                     //guess I'm a superserver that pulled from my children and now needs to stash it away in some queue
                     assert(!mParent);
                     SpaceNode* rn=gSpaceNodes[od->spaceServerNode]->mParent;
-                    mRNMessageQueue[rn->id()].push(msg,msg.size,gPriority(msg.source,msg.dest));
+                    getQueueByUUID(mRNMessageQueue,rn->id()).push(msg,msg.size,gPriority(msg.source,msg.dest));
                     rn->notifyNewRNMessage(id());
                 }else {
                     assert(mParent);
                     ObjectHost *oh=gObjectHosts[od->objectHost];
-                    mOHMessageQueue[oh->queuePerObject()?msg.dest:oh->id()].push(msg,msg.size,gPriority(msg.source,msg.dest));
+                    getQueueByUUID(mOHMessageQueue,oh->queuePerObject()?msg.dest:oh->id()).push(msg,msg.size,gPriority(msg.source,msg.dest));
                     oh->notifyNewSpaceMessage(oh->queuePerObject()?msg.dest:id());
                     //FIXME should be done on SpaceNodes pullFromOH(1);
                 }
@@ -250,7 +259,7 @@ void SpaceNode::pullFromOH(size_t howMany) {
                     ++countera;
 
                 gSpaceNodes[spaceNodeId]->notifyNewSpaceMessage(id());
-                mSpaceMessageQueue[spaceNodeId].push(msg,msg.size,priority);
+                getQueueByUUID(mSpaceMessageQueue,spaceNodeId).push(msg,msg.size,priority);
             }
         }
     }
@@ -304,7 +313,7 @@ size_t SpaceNode::waitingMessagesParent(){
 }
 
 bool SpaceNode::pull(const UUID&space, Message&msg){
-    FairQueue<Message>*q=&mSpaceMessageQueue[space];
+    FairQueue<Message>*q=&getQueueByUUID(mSpaceMessageQueue,space);
     if (q->empty()) {
         return false;
     }else {
@@ -315,7 +324,7 @@ bool SpaceNode::pull(const UUID&space, Message&msg){
 }
 
 bool SpaceNode::pullbyoh(const UUID&oh, Message&msg){
-    FairQueue<Message>*q=&mOHMessageQueue[oh];
+    FairQueue<Message>*q=&getQueueByUUID(mOHMessageQueue,oh);
     if (q->empty()) {
         return false;
     }else {
@@ -336,7 +345,7 @@ bool SpaceNode::pullbyparent(Message&msg) {
 }
 
 bool SpaceNode::pullbyrn(const UUID&rn, Message&msg) {
-    FairQueue<Message>*q=&mRNMessageQueue[rn];
+    FairQueue<Message>*q=&getQueueByUUID(mRNMessageQueue,rn);
     if (q->empty()) {
         return false;
     }else {

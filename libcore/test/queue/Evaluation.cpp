@@ -7,7 +7,7 @@
 namespace Sirikata { namespace QueueBench {
 
 static double getPriority(const Message&msg) {
-    return gPriority(msg.source,
+    return standardfalloff(msg.source,
                      msg.dest);
 }
 void evaluateError(const std::vector<Message>&messages,
@@ -63,7 +63,10 @@ void evaluateError(const std::vector<Message>&messages,
                 break;
             }
             double priority=getPriority(*inputiter);
-            if(binByPriority&&(priority-least)/(most-least)>(numBins-1-(double)i)/(double)numBins) {
+
+            if(binByPriority&&(priority-least)/(most-least)<(numBins-1-(double)i)/(double)numBins) {
+                //std::cout << "Pri "<<priority<<"least "<<least<<" most "<<most<< " vs "<<(numBins-1-(double)i)/(double)numBins<<'\n';
+                
                 break;
             }
             ++binMessageCount;
@@ -75,7 +78,8 @@ void evaluateError(const std::vector<Message>&messages,
                 break;
             ++totalOutputMessageCount;
         }
-        std::cout<<'@'<<getPriority(minpriority)<<':'<<j<<'/'<<binMessageCount<<'\n';
+        if (binMessageCount)
+            std::cout<<'@'<<getPriority(minpriority)<<':'<<j<<'/'<<binMessageCount<<'\n';
         
         
     }

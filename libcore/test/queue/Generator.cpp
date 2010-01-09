@@ -10,6 +10,9 @@ RandomMessageGenerator::RandomMessageGenerator() {
 }
 Message RandomMessageGenerator::generate(const UUID&source) {
     UUID dest=oSeg.random();
+    while (dest==source) {
+        dest=oSeg.random();
+    }
     Message retval;
     retval.dest=dest;
     retval.source=source;
