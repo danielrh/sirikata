@@ -14,6 +14,7 @@ struct ObjectKnowledgeDescription {
 
 class Message;
 double standardfalloff (const UUID&a, const UUID&b);
+double xstandardfalloff (const UUID&a, const UUID&b);
 extern std::tr1::function<double(const Vector3d&, const Vector3d&)> gLocationPriority;
 extern std::tr1::function<double(const UUID&, const UUID&)> gPriority;
 extern std::tr1::function<double(const UUID&, const UUID&, const ObjectKnowledgeDescription&)> gKnowledgePriority;

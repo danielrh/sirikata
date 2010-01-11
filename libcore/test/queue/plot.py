@@ -3,11 +3,19 @@ import subprocess
 import sys
 import os
 
+maxx=.1;
+minx=None;
+maxy=None
+miny=None;
+logPlot=False
+loglogPlot=False
 
 if len(sys.argv)==2 and sys.argv[1].find(".dat")!=-1 and os.path.exists(sys.argv[1]):
     f=open(sys.argv[1],"r")
     plotchartlines=f.readlines()
     f.close()
+    title=sys.argv[1][0:sys.argv[1].find(".dat")]
+    
 else:
     (outp,inp)=os.pipe();
     sp = subprocess.Popen(['../../../build/cmake/queuetest']+sys.argv[1:], 0, None, None, inp, None, None, False, False, None, None)
@@ -15,12 +23,9 @@ else:
     plotchart=""
     os.close(inp);
     plotchartlines=os.fdopen(outp).readlines();
-
-
-
-title="queue";
-for argi in sys.argv[1:]:
-    title+='_'+argi.replace("--","").replace("=","~")
+    title="queue";
+    for argi in sys.argv[1:]:
+        title+='_'+argi.replace("--","").replace("=","~").replace("queue","q").replace("knowledge","kno").replace("space","spc").replace("radius","rad").replace("stream","strm").replace("separate","sep").replace("false","f").replace("true","t").replace("distance","dist").replace("object","obj").replace("message","msg");
 class DataClass:
     def __init__(self,title):
         self.title=title
@@ -29,10 +34,8 @@ class DataClass:
 dataClasses=[]
 dataClass=None
 f=open(title+'.dat','w');
-maxx=None
-minx=None;
-maxy=None
-miny=None;
+
+shouldPass=maxx!=None
 for s in plotchartlines:
     f.write(s)
     slist=s.split(',')
@@ -44,19 +47,20 @@ for s in plotchartlines:
         y=float(slist[1])
         dataClass.x.append(x)
         dataClass.y.append(y)
-        if maxx==None or x>maxx:
+        if (maxx==None or x>maxx) and not shouldPass:
             maxx=x
         if minx==None or x<minx:
             minx=x
-        if maxy==None or y>maxy:
-            maxy=y
-        if miny==None or y<miny:
-            miny=y
+        if x<=maxx:
+            if maxy==None or y>maxy:
+                maxy=y
+            if miny==None or y<miny:
+                miny=y
 f.close()
-for dataClass in dataClasses:
-    print dataClass.title
-    print dataClass.x
-    print dataClass.y
+#for dataClass in dataClasses:
+#    print dataClass.title
+#    print dataClass.x
+#    print dataClass.y
 import matplotlib.pyplot as plt
 
 
@@ -87,9 +91,10 @@ def set_axes_fontsize(axes, fontsize, fontfamily='serif'):
         tick.label1.set_fontname(fontfamily)
 
 def set_legend_fontsize(legend, fontsize):
-    for t in legend.get_texts():
-        t.set_fontsize(fontsize)
-        t.set_fontname('serif')
+    if legend:
+        for t in legend.get_texts():
+            t.set_fontsize(fontsize)
+            t.set_fontname('serif')
 
 
 #fmts=[]
@@ -98,7 +103,7 @@ def set_legend_fontsize(legend, fontsize):
 
 #avg_fmt = 'r^'
 #avg_label = ' Avg'
-formatSymbols=['D','o','^','.','<','>','p','*','h']
+formatSymbols=['D','o','^','.','<','>','p','*','h']#['-']
 global_font_size=18.0;
 
 plt.figure(1, figsize=(11,8.5), dpi=600)
@@ -110,14 +115,20 @@ for dataClass in dataClasses:
     index+=1
 
 set_axes_fontsize(plt.gca(), global_font_size)
-#plt.axis([minx, 0.04, 0, maxy])
-
-plt.gca().set_xscale('log')
-#plt.gca().set_yscale('log')
+if logPlot or loglogPlot:
+    plt.gca().set_xscale('log')
+    if loglogPlot:
+        plt.gca().set_yscale('log')
+    else:
+        pass
+else:
+    plt.axis([minx, maxx, 0, maxy])
 plt.xlabel('priority',fontname='serif',fontsize=global_font_size)
 plt.ylabel('bandwidth',fontname='serif',fontsize=global_font_size)
 leg = plt.legend(loc='best')
 set_legend_fontsize(leg, global_font_size)
 
 plt.savefig(title+'.pdf')
+os.execlp('xpdf','xpdf',title+'.pdf')
+#plt.show()
 #plt.show()

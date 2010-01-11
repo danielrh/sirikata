@@ -7,7 +7,7 @@ class ObjectData {
 public:
     UUID spaceServerNode;
     UUID objectHost;
-    double radialSize;//could be baked into UUID
+    double radius;//could be baked into UUID
     Vector3d location;//doesn't belong here, but useful for 'baseline'
 };
 

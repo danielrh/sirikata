@@ -66,7 +66,7 @@ void generateObjects(int nss, int nobj,const std::vector<UUID> &objectHosts, dou
             for (int j=0;j<(int)(nobj/nss);++j) {
                 ObjectData od;
                 od.location=i->second->randomLocation();
-                od.radialSize=randomObjectSize(largeObjectSize);
+                od.radius=randomObjectSize(largeObjectSize);
                 od.spaceServerNode=i->second->id();
                 od.objectHost=objectHosts[rand()%objectHosts.size()];
                 oSeg.insert(pseudorandomUUID(),od);
@@ -82,9 +82,9 @@ void generateObjectHosts(int nssv, int noh, int nobj, double largeObjectSize, bo
     resetPseudorandomUUID(3);
     generateObjects(nssv,nobj,ohs, largeObjectSize);
 }
-MessagePriorityMap finalMessageOrder=MessagePriorityMap(MessagePriority(standardfalloff));
-MessagePriorityMap oracleMessageOrder=MessagePriorityMap(MessagePriority(standardfalloff));
-std::vector<Message>messages;
+MessagePriorityMap finalMessageOrder=MessagePriorityMap(MessagePriority(xstandardfalloff));
+MessagePriorityMap oracleMessageOrder=MessagePriorityMap(MessagePriority(xstandardfalloff));
+std::vector<Message>messages=std::vector<Message>(0);
 int messageCount=0;
 int gOhQueueSize;//var read in main options
 int gSpaceQueueSize;//var read in main options
@@ -144,7 +144,7 @@ bool loop() {
     }
     if(messageCount<=0) {
 
-        evaluateError(messages,finalMessageOrder,oracleMessageOrder,100,false);
+        evaluateError(messages,gMeasureOracle?oracleMessageOrder:finalMessageOrder,oracleMessageOrder,100,false);
         return false;
     }
     return true;
@@ -211,7 +211,7 @@ int main(int argc, char**argv) {
     OptionSet::getOptions("")->parse(argc,argv);    
 
 
-    gMeasureOracle=measureOracle;
+    gMeasureOracle=measureOracle->as<bool>();
     messageCount=(int)(nmsg->as<int>()*fractionOfMessagesMeasured->as<double>());
     gOhQueueSize=ohQueueSize->as<int>();
     gSpaceQueueSize=spaceQueueSize->as<int>();
@@ -245,7 +245,7 @@ int main(int argc, char**argv) {
 
 
      if (true) {
-         OracleOHMessageQueue omq;
+         OracleOHMessageQueue omq(spaceQueueSize->as<int>());
          for (size_t i=0;i<messages.size();++i) {
              omq.insertMessage(messages[i]);
          }
@@ -253,7 +253,7 @@ int main(int argc, char**argv) {
          int i=0;
          double lastPriority=1.e38;
          for (int index=0;index<messageCount&&omq.popMessage(msg);++index) {
-             double priority=standardfalloff(msg.source,msg.dest);
+             double priority=xstandardfalloff(msg.source,msg.dest);
             if (priority>lastPriority) {
                 //printf ("Priority Error %.40f vs %.40f\n",priority,lastPriority);
                 

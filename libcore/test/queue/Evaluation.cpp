@@ -67,8 +67,8 @@ void evaluateRadiusBasedError(std::vector<Message> &inputMessages,
 
 #define NUM_RADIUS_BINS 4
 int getRadiusBin(const Message&m, double minRadius, double maxRadius){
-    double a=oSeg[m.source]->radialSize;
-    double b=oSeg[m.dest]->radialSize;
+    double a=oSeg[m.source]->radius;
+    double b=oSeg[m.dest]->radius;
     if (b*1.5<a) {
         return 1;//big object -> small object
     }
@@ -115,7 +115,7 @@ void evaluateError(const std::vector<Message>&messages,
     double maxRadius=0;
     double minRadius=1.e38;
     for (std::vector<UUID>::iterator i=oSeg.mUUIDs.begin(),ie=oSeg.mUUIDs.end();i!=ie;++i) {
-        double rad=oSeg[*i]->radialSize;
+        double rad=oSeg[*i]->radius;
         if (rad>maxRadius||i==oSeg.mUUIDs.begin()) maxRadius=rad;
         if (rad<minRadius||i==oSeg.mUUIDs.begin()) minRadius=rad;
     }

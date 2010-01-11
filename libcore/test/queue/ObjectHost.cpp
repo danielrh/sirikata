@@ -9,6 +9,7 @@
 namespace Sirikata { namespace QueueBench {
 std::tr1::unordered_map<UUID,ObjectHost*,UUID::Hasher>gObjectHosts;
 ObjectHost::ObjectHost(bool streamPerObject,const ObjectKnowledgeDescription &knowledge, bool objectMessageQueueIsFair):mName(pseudorandomUUID()),mKnowledge(knowledge),mPullOrder(true) {
+    mLastHopKnowledge=mKnowledge;
     mObjectMessageQueueIsFair=objectMessageQueueIsFair;
     gObjectHosts[mName]=this;       
     mStreamPerObject=streamPerObject;
@@ -19,15 +20,15 @@ void ObjectHost::addObject(const UUID&obj){
     mObjects.insert(obj);
     UUID spaceNode=oSeg[obj]->spaceServerNode;
     if (mSpaceNodePriority.find(spaceNode)==mSpaceNodePriority.end()) {
-        mSpaceNodePriority[spaceNode]=gPriority(obj,obj);
+        mSpaceNodePriority[spaceNode]=gKnowledgePriority(oSeg.mUUIDs.size()?oSeg.mUUIDs[0]:obj,obj,mLastHopKnowledge);
     }else {            
-        mSpaceNodePriority[spaceNode]+=gPriority(obj,obj);
+        mSpaceNodePriority[spaceNode]+=gKnowledgePriority(oSeg.mUUIDs.size()?oSeg.mUUIDs[0]:obj,obj,mLastHopKnowledge);
     }
 }
 void ObjectHost::restorePullOrder() {
     if (mStreamPerObject) {
         for (ObjectSet::iterator i=mObjects.begin(),ie=mObjects.end();i!=ie;++i) {
-            mPullOrder.push(*i,1,gPriority(*i,*i));
+            mPullOrder.push(*i,1,gKnowledgePriority(oSeg.mUUIDs[0],*i,mLastHopKnowledge));
         }
     }else {
         for (SpaceNodePriorityMap::iterator i=mSpaceNodePriority.begin(),ie=mSpaceNodePriority.end();i!=ie;++i) {
@@ -44,7 +45,7 @@ void ObjectHost::notifyNewSpaceMessage(const UUID&spaceOrObj){
     if (where!=mDefunctObjects.end()) {
         mDefunctObjects.erase(where);        
         if (mStreamPerObject) {
-            mPullOrder.push(spaceOrObj,1,gPriority(spaceOrObj,spaceOrObj));        
+            mPullOrder.push(spaceOrObj,1,gKnowledgePriority(oSeg.mUUIDs[0],spaceOrObj,mLastHopKnowledge));        
         }else {
             SpaceNodePriorityMap::iterator where=mSpaceNodePriority.find(spaceOrObj);
             assert(where!=mSpaceNodePriority.end());
@@ -135,7 +136,7 @@ bool ObjectHost::pull(Message&msg){
         }
         for (std::vector<UUID>::iterator iter=saved.begin(),itere=saved.end();iter!=itere;++iter) {           
             assert(mDefunctObjects.find(*iter)==mDefunctObjects.end());
-            mPullOrder.push(*iter,1,gPriority(*iter,*iter));
+            mPullOrder.push(*iter,1,gKnowledgePriority(oSeg.mUUIDs[0],*iter,mLastHopKnowledge));
             checkBookkeeping();    
         }      
     }else{

@@ -11,6 +11,7 @@ class ObjectHost{
     UUID mName;
     bool mStreamPerObject;
     ObjectKnowledgeDescription mKnowledge;
+    ObjectKnowledgeDescription mLastHopKnowledge;
     bool mObjectMessageQueueIsFair;
     size_t mRestoredPullOrder;
     typedef std::tr1::unordered_set<UUID,UUID::Hasher> ObjectSet;
