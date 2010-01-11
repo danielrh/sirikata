@@ -2,6 +2,7 @@
 #define _SIRIKATA_TEST_OBJECT_HOST_HPP_
 #include "FairQueue.hpp"
 #include "Message.hpp"
+#include "Priority.hpp"
 namespace Sirikata { namespace QueueBench {
 class ObjectHost{
     double mCurrentPriority;
@@ -9,9 +10,7 @@ class ObjectHost{
     FairQueue<Message>*getObjectMessageOrder(const UUID&name);
     UUID mName;
     bool mStreamPerObject;
-    bool mDistanceKnowledge;
-    bool mRemoteObjectRadiusKnowledge;
-    bool mLocalObjectRadiusKnowledge;
+    ObjectKnowledgeDescription mKnowledge;
     bool mObjectMessageQueueIsFair;
     size_t mRestoredPullOrder;
     typedef std::tr1::unordered_set<UUID,UUID::Hasher> ObjectSet;
@@ -39,7 +38,7 @@ public:
     void insertMessage (const Message&msg);
     template <class Container> void restorePullOrder(const Container &cont);
     ///If streamPerObject false then it assumes a stream per spacenode
-    ObjectHost(bool streamPerObject, bool distanceKnowledge,  bool remoteRadiusKnowledge, bool localRadiusKnowledge, bool objectMessageQueueIsFair);
+    ObjectHost(bool streamPerObject, const ObjectKnowledgeDescription &knowledge, bool objectMessageQueueIsFair);
     void addObject(const UUID&);
     bool pull(const UUID &, Message&);
     bool pull(Message&);

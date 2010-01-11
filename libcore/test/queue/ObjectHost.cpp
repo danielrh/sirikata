@@ -8,13 +8,10 @@
 #include "Random.hpp"
 namespace Sirikata { namespace QueueBench {
 std::tr1::unordered_map<UUID,ObjectHost*,UUID::Hasher>gObjectHosts;
-ObjectHost::ObjectHost(bool streamPerObject,bool distanceKnowledge,bool remoteRadiusKnowledge,bool localRadiusKnowledge, bool objectMessageQueueIsFair):mName(pseudorandomUUID()),mPullOrder(true) {
+ObjectHost::ObjectHost(bool streamPerObject,const ObjectKnowledgeDescription &knowledge, bool objectMessageQueueIsFair):mName(pseudorandomUUID()),mKnowledge(knowledge),mPullOrder(true) {
     mObjectMessageQueueIsFair=objectMessageQueueIsFair;
     gObjectHosts[mName]=this;       
     mStreamPerObject=streamPerObject;
-    mLocalObjectRadiusKnowledge=localRadiusKnowledge;
-    mRemoteObjectRadiusKnowledge=remoteRadiusKnowledge;
-    mDistanceKnowledge=distanceKnowledge;
     mCurrentPriority=0;
     mRestoredPullOrder=0;
 }
@@ -168,23 +165,7 @@ bool ObjectHost::pull(Message&msg){
     return retval;    
 }
 double ObjectHost::ohMessagePriority(const Message&msg){
-    double priority=1;
-    double oldSourceSize=oSeg[msg.source]->radialSize;
-    double oldDestSize=oSeg[msg.dest]->radialSize;
-    if (!mLocalObjectRadiusKnowledge) {
-        oSeg[msg.source]->radialSize=1;
-    }
-    if (!mRemoteObjectRadiusKnowledge) {
-        oSeg[msg.dest]->radialSize=1;
-    }
-    priority=gPriority(msg.source,msg.dest);    
-    if (!mDistanceKnowledge) {
-        priority/=gLocationPriority(oSeg[msg.source]->location,
-                                    oSeg[msg.dest]->location);
-    }
-    oSeg[msg.source]->radialSize=oldSourceSize;
-    oSeg[msg.dest]->radialSize=oldDestSize;
-    return priority;
+    return gKnowledgePriority(msg.source,msg.dest,mKnowledge);
 }
 void ObjectHost::insertMessage (const Message&msg){
     UUID sserver=oSeg[msg.source]->spaceServerNode;

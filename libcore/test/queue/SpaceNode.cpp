@@ -7,8 +7,9 @@
 #include "Random.hpp"
 namespace Sirikata{ namespace QueueBench {
 std::tr1::unordered_map<UUID,SpaceNode*,UUID::Hasher>gSpaceNodes;
-SpaceNode::SpaceNode(const BoundingBox3d3f & box,SpaceNode*parent, bool resort_message_queues):mBounds(box),mName(pseudorandomUUID()),mNextChild(true),mNextMessage(true),mParentMessageQueue(resort_message_queues),mNearSpaces(true),mNearRNs(true){
+SpaceNode::SpaceNode(const BoundingBox3d3f & box,SpaceNode*parent, const ObjectKnowledgeDescription &knowledge, const ObjectKnowledgeDescription &outputKnowledge, bool resort_message_queues, bool resort_output_message_queues):mBounds(box),mName(pseudorandomUUID()),mNextChild(true),mNextMessage(true),mKnowledge(knowledge),mOutputKnowledge(outputKnowledge),mParentMessageQueue(resort_message_queues),mNearSpaces(true),mNearRNs(true) {
     mResortMessageQueues=resort_message_queues;
+    mResortOutputMessageQueues=resort_output_message_queues;
     gSpaceNodes[id()]=this;
     mParent=parent;
     if (mParent) {
@@ -50,7 +51,7 @@ SpaceNode*SpaceNode::split(){
                                   mBounds.max());
     }
     mBounds=oldbounds;
-    SpaceNode *retval=new SpaceNode(newbounds,mParent,mResortMessageQueues);
+    SpaceNode *retval=new SpaceNode(newbounds,mParent,mKnowledge,mOutputKnowledge,mResortMessageQueues,mResortOutputMessageQueues);
     if (mParent) {
         (*mParent->mKnownSpaceNodes)[retval->id()]=this;
     }
@@ -72,6 +73,15 @@ FairQueue<Message>&SpaceNode::getQueueByUUID(KeyMessageQueue&q, const UUID&uuid)
     KeyMessageQueue::iterator where=q.find(uuid);
     if (where==q.end()) {
         q.insert(KeyMessageQueue::value_type(uuid,FairQueue<Message>(mResortMessageQueues)));
+        where=q.find(uuid);
+    }
+    return where->second;
+
+}
+FairQueue<Message>&SpaceNode::getOutputQueueByUUID(KeyMessageQueue&q, const UUID&uuid){
+    KeyMessageQueue::iterator where=q.find(uuid);
+    if (where==q.end()) {
+        q.insert(KeyMessageQueue::value_type(uuid,FairQueue<Message>(mResortOutputMessageQueues)));
         where=q.find(uuid);
     }
     return where->second;
@@ -117,7 +127,7 @@ void SpaceNode::pullFromRNs(size_t howMany) {
             }
             if (retval) {
                 SpaceNode *child=gSpaceNodes[oSeg[msg.dest]->spaceServerNode];
-                double priority=gPriority(msg.source,msg.dest);
+                double priority=gKnowledgePriority(msg.source,msg.dest,mKnowledge);
                 getQueueByUUID(mChildMessageQueue,child->id()).push(msg,msg.size,priority);//FIXME really prioritize that way?
                 child->notifyNewParentMessage(id(),priority);//FIXME
             }
@@ -193,16 +203,17 @@ void SpaceNode::pullFromSpaces(size_t howMany) {
             }
             if (retval) {
                 ObjectData * od=oSeg[msg.dest];
+                double priority=gKnowledgePriority(msg.source,msg.dest,mOutputKnowledge);
                 if (od->spaceServerNode!=id()) {
                     //guess I'm a superserver that pulled from my children and now needs to stash it away in some queue
                     assert(!mParent);
                     SpaceNode* rn=gSpaceNodes[od->spaceServerNode]->mParent;
-                    getQueueByUUID(mRNMessageQueue,rn->id()).push(msg,msg.size,gPriority(msg.source,msg.dest));
+                    getOutputQueueByUUID(mRNMessageQueue,rn->id()).push(msg,msg.size,priority);
                     rn->notifyNewRNMessage(id());
                 }else {
                     assert(mParent);
                     ObjectHost *oh=gObjectHosts[od->objectHost];
-                    getQueueByUUID(mOHMessageQueue,oh->queuePerObject()?msg.dest:oh->id()).push(msg,msg.size,gPriority(msg.source,msg.dest));
+                    getOutputQueueByUUID(mOHMessageQueue,oh->queuePerObject()?msg.dest:oh->id()).push(msg,msg.size,priority);
                     oh->notifyNewSpaceMessage(oh->queuePerObject()?msg.dest:id());
                     //FIXME should be done on SpaceNodes pullFromOH(1);
                 }
@@ -244,8 +255,14 @@ void SpaceNode::pullFromOH(size_t howMany) {
         bool ret=pullfromoh(msg);
         if(ret) {
             UUID spaceNodeId=oSeg[msg.dest]->spaceServerNode;//FIXME OSEG lookup
-            double priority=gPriority(msg.source,msg.dest);
-            if (mKnownSpaceNodes->find(spaceNodeId)==mKnownSpaceNodes->end()){
+            double priority=gKnowledgePriority(msg.source,msg.dest,mKnowledge);
+            if (spaceNodeId==id()) {
+                ObjectData * od=oSeg[msg.dest];
+                ObjectHost *oh=gObjectHosts[od->objectHost];
+                getQueueByUUID(mOHMessageQueue,oh->queuePerObject()?msg.dest:oh->id()).push(msg,msg.size,priority);
+                oh->notifyNewSpaceMessage(oh->queuePerObject()?msg.dest:id());
+                
+            }else if (mKnownSpaceNodes->find(spaceNodeId)==mKnownSpaceNodes->end()){
                 if (mParent) {
                     static int countera=0;
                     ++countera;

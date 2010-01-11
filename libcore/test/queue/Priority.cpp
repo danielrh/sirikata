@@ -35,7 +35,26 @@ double roughStandardfalloff (const UUID&a, const UUID&b) {
 //    adrsize=bdrsize=1.0;
     return adrsize*bdrsize*gLocationPriority(ad->location,bd->location);
 }
+double knowledgeStandardfalloff(const UUID&a, const UUID&b, const ObjectKnowledgeDescription&k) {
+    double asize=1.0;
+    double bsize=1.0;
+    ObjectData* ad=oSeg[a];
+    ObjectData* bd=oSeg[b];
 
+    double nosizepriority=k.distanceKnowledge?gLocationPriority(ad->location,bd->location):1.0;
+    if (k.remoteRadiusKnowledge==ObjectKnowledgeDescription::FULL) {
+        asize=ad->radialSize;
+        bsize=bd->radialSize;
+    }
+    if (k.remoteRadiusKnowledge==ObjectKnowledgeDescription::FUZZY) {
+        int exp;
+        frexp(bd->radialSize,&exp);
+        bsize=ldexp(1.0,exp);
+        frexp(ad->radialSize,&exp);
+        asize=ldexp(1.0,exp);
+    }
+    return asize*bsize*nosizepriority;
+}
 
 double standardfalloff (const UUID&a, const UUID&b) {
     ObjectData* ad=oSeg[a];
@@ -64,6 +83,7 @@ double randomPriority(const UUID&a, const UUID&b) {
 #if 1
 std::tr1::function<double(const Vector3d&, const Vector3d&)> gLocationPriority(&oonnlgnlgn);
 std::tr1::function<double(const UUID&, const UUID&)> gPriority(&roughStandardfalloff);
+std::tr1::function<double(const UUID&, const UUID&,const ObjectKnowledgeDescription&)> gKnowledgePriority(&knowledgeStandardfalloff);
 #else
 std::tr1::function<double(const Vector3d&, const Vector3d&)> gLocationPriority(&randomLocationPriority);
 std::tr1::function<double(const UUID&, const UUID&)> gPriority(&randomPriority);

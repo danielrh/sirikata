@@ -1,5 +1,6 @@
 #include "FairQueue.hpp"
 #include "Message.hpp"
+#include "Priority.hpp"
 namespace Sirikata { namespace QueueBench {
 class SpaceNode;
 typedef std::tr1::unordered_map<UUID,SpaceNode*,UUID::Hasher> SpaceNodeMap;
@@ -12,9 +13,11 @@ class SpaceNode  {
     FairQueue<UUID> mNextMessage;
     PriorityMap mActivePriorities;
     SpaceNodeMap*mKnownSpaceNodes;
-
+    ObjectKnowledgeDescription mKnowledge;
+    ObjectKnowledgeDescription mOutputKnowledge;
     typedef std::tr1::unordered_map<UUID,FairQueue<Message>,UUID::Hasher > KeyMessageQueue;
     FairQueue<Message>&getQueueByUUID(KeyMessageQueue&q, const UUID&uuid);
+    FairQueue<Message>&getOutputQueueByUUID(KeyMessageQueue&q, const UUID&uuid);
     KeyMessageQueue mOHMessageQueue;
     KeyMessageQueue mSpaceMessageQueue;
     KeyMessageQueue mRNMessageQueue;
@@ -26,6 +29,7 @@ class SpaceNode  {
     FairQueue<UUID> mNearRNs;
     bool mRNPrioritySet;
     bool mResortMessageQueues;
+    bool mResortOutputMessageQueues;
     double mDefaultParentPriority;
 public:
     size_t waitingMessagesOH();
@@ -36,7 +40,7 @@ public:
     const UUID&id() {
         return mName;
     }
-    SpaceNode(const BoundingBox3d3f & box, SpaceNode* parent, bool resortMessageQueues);
+    SpaceNode(const BoundingBox3d3f & box, SpaceNode* parent, const ObjectKnowledgeDescription &knowledge, const ObjectKnowledgeDescription &outputKnowledge, bool resortMessageQueues, bool resortOutputMessageQueues);
     ///Either saved in the resource node or the global var--not responsible for allocation/deallocation
 
     SpaceNode*split();
