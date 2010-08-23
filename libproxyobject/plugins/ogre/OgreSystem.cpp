@@ -391,7 +391,7 @@ bool OgreSystem::initialize(Provider<ProxyCreationListener*>*proxyManager, const
                            mWindowDepth=new OptionValue("colordepth","8",OgrePixelFormatParser(),"Pixel color depth"),
                            renderBufferAutoMipmap=new OptionValue("rendertargetautomipmap","false",OptionValueType<bool>(),"If the render target needs auto mipmaps generated"),
                            mFrameDuration=new OptionValue("fps","30",FrequencyType(),"Target framerate"),
-                           shadowTechnique=new OptionValue("shadows","none",ShadowType(),"Shadow Style=[none,texture_additive,texture_modulative,stencil_additive,stencil_modulaive]"),
+                           shadowTechnique=new OptionValue("shadows","stencil_modulative",ShadowType(),"Shadow Style=[none,texture_additive,texture_modulative,stencil_additive,stencil_modulaive]"),
                            shadowFarDistance=new OptionValue("shadowfar","1000",OptionValueType<float32>(),"The distance away a shadowcaster may hide the light"),
                            mParallaxSteps=new OptionValue("parallax-steps","1.0",OptionValueType<float>(),"Multiplies the per-material parallax steps by this constant (default 1.0)"),
                            mParallaxShadowSteps=new OptionValue("parallax-shadow-steps","10",OptionValueType<int>(),"Total number of steps for shadow parallax mapping (default 10)"),
@@ -535,6 +535,7 @@ bool OgreSystem::initialize(Provider<ProxyCreationListener*>*proxyManager, const
         std::tr1::bind(&OgreSystem::performUpload,this,_1));
     mSceneManager->setShadowTechnique(shadowTechnique->as<Ogre::ShadowTechnique>());
     mSceneManager->setShadowFarDistance(shadowFarDistance->as<float32>());
+    mSceneManager->setShadowColour(Ogre::ColourValue(0.5,0.5,0.5));
     mSceneManager->setAmbientLight(Ogre::ColourValue(0.0,0.0,0.0,0));
     sActiveOgreScenes.push_back(this);
 

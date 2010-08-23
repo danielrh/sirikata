@@ -715,7 +715,7 @@ public:
                     totalVerticesCopied+=vertcount;
                     for (int i=0;i<vertcount; ++i) {
                         Vector3f v = fixUp(up, submesh.positions[i]);
-                        Vector4f v_xform = pos_xform * Vector4f(v[0], v[1], v[2], 1.f);
+                        Vector4f v_xform = (pos_xform * Vector4f(v[0], v[1], v[2], 1.f))*.01;
                         v = Vector3f(v_xform[0], v_xform[1], v_xform[2]);
                         memcpy(pData,&v.x,sizeof(float));
                         memcpy(pData+sizeof(float),&v.y,sizeof(float));
@@ -831,6 +831,8 @@ public:
             vbuf->unlock();
         }
         mesh->load();
+        mesh->prepareForShadowVolume();
+        mesh->buildEdgeList();
     }
 };
 
@@ -903,7 +905,7 @@ void MeshEntity::createMesh(const Meshdata& md) {
                     for (int i=0; i<indexcount; i++) {
                         int j = prim.indices[i];
                         Vector3f v = fixUp(up, submesh.positions[j]);
-                        Vector4f v_xform = pos_xform * Vector4f(v[0], v[1], v[2], 1.f);
+                        Vector4f v_xform = (pos_xform * Vector4f(v[0], v[1], v[2], 1.f))*.01;
                         v = Vector3f(v_xform[0], v_xform[1], v_xform[2]);
                         mo.position(v[0], v[1], v[2]);
                         std::cerr<<"Mo pos "<<v[0]<<","<<v[1]<<","<<v[2]<<"\n";
@@ -966,6 +968,7 @@ void MeshEntity::createMesh(const Meshdata& md) {
 
         String lightname = getProxy().getObjectReference().toString()+"_light_"+hash+ boost::lexical_cast<String>(light_idx++);
         Ogre::Light* light = constructOgreLight(getScene()->getSceneManager(), lightname, sublight);
+        light->setCastShadows(true);
         if (!light->isAttached()) {
             mLights.push_back(light);
             mSceneNode->attachObject(light);
