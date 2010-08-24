@@ -220,7 +220,7 @@ void ColladaDocumentImporter::finish ()
                         }
                         GeometryInstance new_geo_inst;
                         new_geo_inst.geometryIndex = geo_it->second;
-                        new_geo_inst.transform = Matrix4x4f(curnode.matrix, Matrix4x4f::ROW_MAJOR());
+                        new_geo_inst.transform = Matrix4x4f(fixUnitsInMatrix(curnode.matrix), Matrix4x4f::ROW_MAJOR());
                         new_geo_inst.radius=0;
                         new_geo_inst.aabb=BoundingBox3f3f::null();
                         const COLLADAFW::MaterialBindingArray& bindings = geo_inst->getMaterialBindings();
@@ -253,7 +253,7 @@ void ColladaDocumentImporter::finish ()
                             }
                             GeometryInstance new_geo_inst;
                             new_geo_inst.geometryIndex = geo_it->second;
-                            new_geo_inst.transform = Matrix4x4f(curnode.matrix, Matrix4x4f::ROW_MAJOR());
+                            new_geo_inst.transform = Matrix4x4f(fixUnitsInMatrix(curnode.matrix), Matrix4x4f::ROW_MAJOR());
                             new_geo_inst.radius=0;
                             new_geo_inst.aabb=BoundingBox3f3f::null();
                             const COLLADAFW::MaterialBindingArray& bindings = geo_inst->getMaterialBindings();
@@ -286,7 +286,7 @@ void ColladaDocumentImporter::finish ()
                     }
                     LightInstance new_light_inst;
                     new_light_inst.lightIndex = light_it->second;
-                    new_light_inst.transform = Matrix4x4f(curnode.matrix, Matrix4x4f::ROW_MAJOR());
+                    new_light_inst.transform = Matrix4x4f(fixUnitsInMatrix(curnode.matrix), Matrix4x4f::ROW_MAJOR());
                     mMesh->lightInstances.push_back(new_light_inst);
                 }
 
@@ -327,7 +327,6 @@ void ColladaDocumentImporter::finish ()
     }
 
     mMesh->materials.swap(mEffects);//effects is built up during the above run
-
     // Finally, if we actually have anything for the user, ship the parsed mesh
     if (mMesh->instances.size() > 0 || mMesh->lightInstances.size()) {
         std::tr1::shared_ptr<ProxyMeshObject>(spp)(mProxyPtr);
@@ -341,6 +340,10 @@ bool ColladaDocumentImporter::writeGlobalAsset ( COLLADAFW::FileInfo const* asse
     assert((std::cout << "MCB: ColladaDocumentImporter::writeGLobalAsset(" << asset << ") entered" << std::endl,true));
     bool ok = mDocument->import ( *this, *asset );
     mMesh->up_axis=asset->getUpAxisType();
+    mUnitScale = asset->getUnit().getLinearUnitMeter();
+    if (mUnitScale==0) {
+        mUnitScale=1.0;
+    }
     return ok;
 }
 
@@ -350,6 +353,21 @@ bool ColladaDocumentImporter::writeScene ( COLLADAFW::Scene const* scene )
     mVisualSceneId = inst_vis_scene->getInstanciatedObjectId();
 
     return true;
+}
+
+Vector3f ColladaDocumentImporter::fixUnitsInVector(const Vector3f &input){
+    return Vector3f(input.x*mUnitScale,
+                    input.y*mUnitScale,
+                    input.z*mUnitScale);
+}
+COLLADABU::Math::Matrix4 ColladaDocumentImporter::fixUnitsInMatrix(const COLLADABU::Math::Matrix4 &input){
+    COLLADABU::Math::Matrix4 retval = input;
+    COLLADABU::Math::Vector3 trans=input.getTrans();
+    trans.x*=mUnitScale;
+    trans.y*=mUnitScale;
+    trans.z*=mUnitScale;
+    retval.setTrans(trans);
+    return retval;
 }
 
 
@@ -560,13 +578,13 @@ bool ColladaDocumentImporter::writeGeometry ( COLLADAFW::Geometry const* geometr
                     outputPrim->indices.push_back(submesh->positions.size());
                     if (vdata||vdatad) {
                         if (vdata) {
-                            submesh->positions.push_back(Vector3f(vdata->getData()[uniqueIndexSet.positionIndices*vertStride],//FIXME: is stride 3 or 3*sizeof(float)
-                                                                  vdata->getData()[uniqueIndexSet.positionIndices*vertStride+1],
-                                                                  vdata->getData()[uniqueIndexSet.positionIndices*vertStride+2]));
+                            submesh->positions.push_back(fixUnitsInVector(Vector3f(vdata->getData()[uniqueIndexSet.positionIndices*vertStride],//FIXME: is stride 3 or 3*sizeof(float)
+                                                                                   vdata->getData()[uniqueIndexSet.positionIndices*vertStride+1],
+                                                                                   vdata->getData()[uniqueIndexSet.positionIndices*vertStride+2])));
                         }else if (vdatad) {
-                            submesh->positions.push_back(Vector3f(vdatad->getData()[uniqueIndexSet.positionIndices*vertStride],//FIXME: is stride 3 or 3*sizeof(float)
-                                                                  vdatad->getData()[uniqueIndexSet.positionIndices*vertStride+1],
-                                                                  vdatad->getData()[uniqueIndexSet.positionIndices*vertStride+2]));
+                            submesh->positions.push_back(fixUnitsInVector(Vector3f(vdatad->getData()[uniqueIndexSet.positionIndices*vertStride],//FIXME: is stride 3 or 3*sizeof(float)
+                                                                                   vdatad->getData()[uniqueIndexSet.positionIndices*vertStride+1],
+                                                                                   vdatad->getData()[uniqueIndexSet.positionIndices*vertStride+2])));
                         }
                         if (submesh->aabb==BoundingBox3f3f::null())
                             submesh->aabb=BoundingBox3f3f(submesh->positions.back(),0);
@@ -888,7 +906,7 @@ bool ColladaDocumentImporter::writeAnimationList ( COLLADAFW::AnimationList cons
 bool ColladaDocumentImporter::writeSkinControllerData ( COLLADAFW::SkinControllerData const* skinControllerData )
 {
     SkinControllerData * copy = &mSkinControllerData[skinControllerData->getUniqueId()];
-    copy->bindShapeMatrix = Matrix4x4f(skinControllerData->getBindShapeMatrix(),Matrix4x4f::ROW_MAJOR());
+    copy->bindShapeMatrix = Matrix4x4f(fixUnitsInMatrix(skinControllerData->getBindShapeMatrix()),Matrix4x4f::ROW_MAJOR());
     std::vector<float> xweights;
     if (skinControllerData->getWeights().getType()==COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT) {
         const COLLADAFW::FloatArray * weights=skinControllerData->getWeights().getFloatValues();
@@ -903,7 +921,7 @@ bool ColladaDocumentImporter::writeSkinControllerData ( COLLADAFW::SkinControlle
     }
     const COLLADAFW::Matrix4Array * inverseBind = &skinControllerData->getInverseBindMatrices();
     for (size_t i=0;i<inverseBind->getCount();++i) {
-        copy->inverseBindMatrices.push_back(Matrix4x4f((*inverseBind)[i],Matrix4x4f::ROW_MAJOR()));
+        copy->inverseBindMatrices.push_back(Matrix4x4f(fixUnitsInMatrix((*inverseBind)[i]),Matrix4x4f::ROW_MAJOR()));
     }
     const COLLADAFW::UIntValuesArray * jointsPer = &skinControllerData->getJointsPerVertex();
     unsigned int runningTotal=0;

@@ -706,8 +706,8 @@ public:
             if (geoinst.geometryIndex >= md.geometry.size())
                 continue;
             const SubMeshGeometry& submesh = md.geometry[geoinst.geometryIndex];
-            AxisAlignedBox ogresubmeshaabb(Graphics::toOgre(geoinst.aabb.min()*.01),
-                                           Graphics::toOgre(geoinst.aabb.max()*.01));
+            AxisAlignedBox ogresubmeshaabb(Graphics::toOgre(geoinst.aabb.min()),
+                                           Graphics::toOgre(geoinst.aabb.max()));
             double rad=0;
             if (geoinst_it != md.instances.begin()) {
                 ogresubmeshaabb.merge(mesh->getBounds());
@@ -745,7 +745,7 @@ public:
                     for (int i=0;i<vertcount; ++i) {
                         Vector3f v = fixUp(up, submesh.positions[i]);
                         Vector4f v_xform = (pos_xform * Vector4f(v[0], v[1], v[2], 1.f));
-                        v = Vector3f(v_xform[0], v_xform[1], v_xform[2])*.01;
+                        v = Vector3f(v_xform[0], v_xform[1], v_xform[2]);
                         memcpy(pData,&v.x,sizeof(float));
                         memcpy(pData+sizeof(float),&v.y,sizeof(float));
                         memcpy(pData+2*sizeof(float),&v.z,sizeof(float));
@@ -933,7 +933,7 @@ void MeshEntity::createMesh(const Meshdata& md) {
                         int j = prim.indices[i];
                         Vector3f v = fixUp(up, submesh.positions[j]);
                         Vector4f v_xform = pos_xform * Vector4f(v[0], v[1], v[2], 1.f);
-                        v = Vector3f(v_xform[0], v_xform[1], v_xform[2])*.01;
+                        v = Vector3f(v_xform[0], v_xform[1], v_xform[2]);
                         mo.position(v[0], v[1], v[2]);
                         std::cerr<<"Mo pos "<<v[0]<<","<<v[1]<<","<<v[2]<<"\n";
                         Vector3f normal = fixUp(up, submesh.normals[j]);

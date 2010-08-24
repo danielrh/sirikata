@@ -128,13 +128,15 @@ class SIRIKATA_PLUGIN_EXPORT ColladaDocumentImporter
 
     protected:
         String documentURI() const;
-
+        
+        Vector3f fixUnitsInVector(const Vector3f &input);
+        COLLADABU::Math::Matrix4 fixUnitsInMatrix(const COLLADABU::Math::Matrix4 &input);
         // The following keep track of the components of the scene, as
         // identified by COLLADAFW::UniqueIds.  We use these to chase indirect
         // references within the file.
         COLLADAFW::UniqueId mVisualSceneId; // Currently support loading only a
                                             // single scene
-
+        float mUnitScale;
         typedef std::map<COLLADAFW::UniqueId, const COLLADAFW::VisualScene*> VisualSceneMap;
         VisualSceneMap mVisualScenes;
 
