@@ -123,6 +123,7 @@ public:
         SpaceID space = mProxyObject->getObjectReference().space();
         Time now = Time::now(ho->getSpaceTimeOffset(space));
         Location realLocation = mProxyObject->globalLocation(now);
+
         if (mUpdatedLocation.needsUpdate(now, realLocation)) {
             Protocol::ObjLoc toSet;
             toSet.set_position(realLocation.getPosition());
@@ -399,9 +400,6 @@ struct HostedObject::PrivateCallbacks {
                                 const SpaceID&sid,
                                 Network::Stream::ConnectionStatus ce,
                                 const String&reason) {
-
-        std::cout<<"\n\n\nGot a connection event\n\n\n";
-        std::cout.flush();
         
         if (ce!=Network::Stream::Connected) {
             disconnectionEvent(thus,sid,reason);
@@ -426,9 +424,6 @@ ProxyManagerPtr HostedObject::getProxyManager(const SpaceID& space) {
     SpaceDataMap::const_iterator it = mSpaceData->find(space);
     if (it == mSpaceData->end())
     {
-        std::cout<<"\n\n\n";
-        std::cout<<"Got inside of getProxyManager and did not have the space in mSpaceData";
-        std::cout<<"\n\n\n";
         
         it = mSpaceData->insert(
             SpaceDataMap::value_type( space, PerSpaceData(this, space) )
@@ -817,15 +812,15 @@ void HostedObject::attachScript(const String& script_name)
 {
   if(!mObjectScript)
   {
-    SILOG(oh,warn,"[OH] Ignored attachScript because script is not initialized for " << getUUID().toString() << "(internal id)");
-        return;
+      SILOG(oh,warn,"[OH] Ignored attachScript because script is not initialized for " << getUUID().toString() << "(internal id)");
+      return;
   }
   
   mObjectScript->attachScript(script_name);
 
 }
 
-void HostedObject::initializeScript(const String& script, const ObjectScriptManager::Arguments &args) {
+void HostedObject::initializeScript(const String& script, const ObjectScriptManager::Arguments &args, const std::string& fileScriptToAttach) {
     if (mObjectScript) {
         SILOG(oh,warn,"[OH] Ignored initializeScript because script already exists for " << getUUID().toString() << "(internal id)");
         return;
@@ -851,17 +846,27 @@ void HostedObject::initializeScript(const String& script, const ObjectScriptMana
     ObjectScriptManager *mgr = ObjectScriptManagerFactory::getSingleton().getConstructor(script)("");
     if (mgr) {
         mObjectScript = mgr->createObjectScript(this->getSharedPtr(), args);
+        if (fileScriptToAttach != "")
+        {
+            std::cout<<"\n\nAttaching script: "<<fileScriptToAttach<<"\n\n";
+            mObjectScript->attachScript(fileScriptToAttach);
+        }
     }
 }
+
 void HostedObject::connect(
         const SpaceID&spaceID,
         const Location&startingLocation,
         const BoundingSphere3f &meshBounds,
         const String& mesh,
-        const UUID&object_uuid_evidence)
+        const UUID&object_uuid_evidence,
+        const String& scriptFile,
+        const String& scriptType)
 {
     if (spaceID == SpaceID::null())
+    {
         return;
+    }
 
     mObjectHost->connect(
         getSharedPtr(), spaceID,
@@ -876,7 +881,7 @@ void HostedObject::connect(
         meshBounds,
         mesh,
         SolidAngle(.00001f),
-        mContext->mainStrand->wrap( std::tr1::bind(&HostedObject::handleConnected, this, _1, _2, _3,startingLocation) ),
+        mContext->mainStrand->wrap( std::tr1::bind(&HostedObject::handleConnected, this, _1, _2, _3,startingLocation,scriptFile,scriptType) ),
         std::tr1::bind(&HostedObject::handleMigrated, this, _1, _2, _3),
         std::tr1::bind(&HostedObject::handleStreamCreated, this, spaceID)
     );
@@ -889,7 +894,8 @@ void HostedObject::connect(
     }
 }
 
-void HostedObject::handleConnected(const SpaceID& space, const ObjectReference& obj, ServerID server,const Location& startingLocation)
+
+void HostedObject::handleConnected(const SpaceID& space, const ObjectReference& obj, ServerID server,const Location& startingLocation, const String& scriptFile, const String& scriptType )
 {
     if (server == NullServerID) {
         HO_LOG(warning,"Failed to connect object (internal:" << mInternalObjectReference.toString() << ") to space " << space);
@@ -913,6 +919,14 @@ void HostedObject::handleConnected(const SpaceID& space, const ObjectReference& 
     //receive the scripting signal for the first time, that means that we create
     //a JSObjectScript for this hostedobject
     bindODPPort(space,Services::LISTEN_FOR_SCRIPT_BEGIN);
+
+    //attach script callback;
+    if (scriptFile != "")
+    {
+        ObjectScriptManager::Arguments script_args;  //these can just be empty;
+        this->initializeScript(scriptType,script_args,scriptFile);
+    }
+    
 }
 
 void HostedObject::handleMigrated(const SpaceID& space, const ObjectReference& obj, ServerID server) {
@@ -1040,29 +1054,50 @@ void HostedObject::processInitScriptMessage(MemoryReference& body)
 }
 
 
+bool HostedObject::handleEntityCreateMessage(const ODP::Endpoint& src, const ODP::Endpoint& dst, MemoryReference bodyData)
+{
+    //if the message isn't on the create_entity port, then it's good.
+    //Otherwise, it's bad.
+    if (dst.port() != Services::CREATE_ENTITY)
+        return false;
+
+    std::cout<<"\n\n\nI got a create entity message!!!\n\n";
+    std::cout<<"\n\nIt's unsupported for now\n\n";
+
+    return true;
+}
 
 void HostedObject::receiveMessage(const SpaceID& space, const Protocol::Object::ObjectMessage* msg) {
     // Convert to ODP runtime format
     ODP::Endpoint src_ep(space, ObjectReference(msg->source_object()), msg->source_port());
     ODP::Endpoint dst_ep(space, ObjectReference(msg->dest_object()), msg->dest_port());
 
+    
     // FIXME to transition to real ODP instead of ObjectMessageRouter +
     // ObjectMessageDispatcher, we need to allow the old route as well.  First
     // we check if we can use ObjectMessageDispatcher::dispatchMessage, and if
     // not, we allow it through to the long term solution, ODP::Service
     if (ObjectMessageDispatcher::dispatchMessage(*msg)) {
         // Successfully delivered using old method
+        
         delete msg;
         return;
     }
     if (mDelegateODPService->deliver(src_ep, dst_ep, MemoryReference(msg->payload()))) {
         // if this was true, it got delivered
+        
         delete msg;
     }
     else if (handleScriptInitMessage(src_ep,dst_ep,MemoryReference(msg->payload())))
     {
         //if this was true, then that means that it was an init script command,
         //and we dealt with it.
+        delete msg;
+    }
+    else if (handleEntityCreateMessage(src_ep,dst_ep,MemoryReference(msg->payload())))
+    {
+        //if this was true, then that means that we got a
+        //handleEntityCreateMessage, and tried to create a new entity
         delete msg;
     }
     else {
@@ -1621,7 +1656,8 @@ ODP::DelegatePort* HostedObject::createDelegateODPPort(ODP::DelegateService* par
     );
 }
 
-bool HostedObject::delegateODPPortSend(const ODP::Endpoint& source_ep, const ODP::Endpoint& dest_ep, MemoryReference payload) {
+bool HostedObject::delegateODPPortSend(const ODP::Endpoint& source_ep, const ODP::Endpoint& dest_ep, MemoryReference payload)
+{
     assert(source_ep.space() == dest_ep.space());
     return mObjectHost->send(getSharedPtr(), source_ep.space(), source_ep.port(), dest_ep.object().getAsUUID(), dest_ep.port(), payload);
 }
@@ -1652,6 +1688,8 @@ void HostedObject::requestVelocityUpdate(const SpaceID& space,  const ObjectRefe
     TimedMotionVector3f tmv (Time::local(),MotionVector3f(curPos,vel));
     //FIXME: re-write the requestLocationUpdate function so that takes in object
     //reference as well
+
+
     requestLocationUpdate(space,tmv);
 }
 
@@ -1694,7 +1732,9 @@ Vector3d HostedObject::requestCurrentPosition (const SpaceID& space, const Objec
     //BFTM_FIXME: need to decide whether want the extrapolated position or last
     //known position.  (Right now, we're going with last known position.)
 
-    Vector3d currentPosition = proxy_obj->getPosition();
+
+    Location curLoc = proxy_obj->extrapolateLocation(Time::local());
+    Vector3d currentPosition = curLoc.getPosition();
     return currentPosition;
 }
 
@@ -1709,7 +1749,6 @@ bool HostedObject::requestMeshUri(const SpaceID& space, const ObjectReference& o
     //this cast does not work.
     ProxyMeshObjectPtr proxy_mesh_obj = std::tr1::dynamic_pointer_cast<ProxyMeshObject,ProxyObject> (proxy_obj);
 
-    //lkjs;
     
     if (proxy_mesh_obj )
         return false;

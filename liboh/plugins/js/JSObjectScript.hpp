@@ -67,7 +67,7 @@ public:
     
     void updateAddressable();
 
-    void attachScript(const String&);
+    virtual void attachScript(const String&);
 
     /** Returns true if this script is valid, i.e. if it was successfully loaded
      *  and initialized.
@@ -86,9 +86,10 @@ public:
     /** Set a timeout with a callback. */
     void timeout(const Duration& dur, v8::Persistent<v8::Object>& target, v8::Persistent<v8::Function>& cb);
 
-    
-
-    
+    // virtual void attachScript(const String& filename)
+    // {
+    //     import(filename);
+    // }
     
     /** Import a file, executing its contents in the root object's scope. */
     v8::Handle<v8::Value> import(const String& filename);
@@ -97,7 +98,7 @@ public:
     void reboot();
 
     /** create a new entity at the run time */
-    void create_entity(Vector3d&, String&);
+    void create_entity(Vector3d& vec, String& script_name, String& mesh_name);
 
     /** create a new presence of this entity */
     //void create_presence(const SpaceID&);
@@ -160,7 +161,7 @@ private:
     void getAllMessageable(AddressableList&allAvailableObjectReferences) const;
     v8::Handle<v8::Value> protectedEval(const String& script_str);
 
-    
+
 
     v8::Local<v8::Object> getMessageSender(const RoutableMessageHeader& msgHeader);
     v8::Local<v8::Object> getMessageSender(const ODP::Endpoint& src);
@@ -189,11 +190,11 @@ private:
     void initializePresences(Handle<Object>& system_obj);
     void clearAllPresences(Handle<Object>& system_obj);
 
-
-    
     ODP::Port* mScriptingPort;
     ODP::Port* mMessagingPort;
+    ODP::Port* mCreateEntityPort;
 
+    
     JSObjectScriptManager* mManager;
 
     typedef std::vector<JSPresenceStruct*> PresenceList;

@@ -21,17 +21,28 @@ namespace JSAddressable {
 
 v8::Handle<v8::Value> toString(const v8::Arguments& args)
 {
-    if (args.Length() != 1)
+    if (args.Length() != 0)
+    {
+        std::cout<<"\n\n\n";
+        std::cout<<"This is args.Length(): "<<args.Length()<<"\n\n";
         return v8::ThrowException( v8::Exception::Error(v8::String::New("Invalid: need exactly one argument to toString method of Addressable")));
+    }
     
     JSObjectScript*         caller;
     SpaceObjectReference*   sporef;
   
   //readORef(args,caller,oref);
 
-  if ( ! decodeAddressable(args[0], caller,sporef))
-      return v8::ThrowException( v8::Exception::Error(v8::String::New("Invalid parameters: require you to send through an addressable object")) );
+  // if ( ! decodeAddressable(args[0], caller,sporef))
+  //     return v8::ThrowException( v8::Exception::Error(v8::String::New("Invalid parameters: require you to send through an addressable object")) );
 
+    if ( ! decodeAddressable(args.This(), caller,sporef))
+    {
+        std::cout<<"\n\nInside of toString function\n\n";
+        return v8::ThrowException( v8::Exception::Error(v8::String::New("Invalid parameters: require you to send through an addressable object")) );
+    }
+
+    
 
   //std::string s = oref->toString();
   std::string s = sporef->toString();
@@ -69,10 +80,16 @@ v8::Handle<v8::Value> __addressableSendMessage (const v8::Arguments& args)
     JSObjectScript* caller;
     SpaceObjectReference* sporef;
     //lkjs: may need to actually pass in args.This.
-    if (! decodeAddressable(args[0],caller,sporef))
-        return v8::ThrowException( v8::Exception::Error(v8::String::New("Invalid parameters: require you to send through an addressable object")) );
+    // if (! decodeAddressable(args[0],caller,sporef))
+    //     return v8::ThrowException( v8::Exception::Error(v8::String::New("Invalid parameters: require you to send through an addressable object")) );
         
+    if (! decodeAddressable(args.This(),caller,sporef))
+    {
+        std::cout<<"\n\nInside of addressableSendMessageFunction\n\n";
+        return v8::ThrowException( v8::Exception::Error(v8::String::New("Invalid parameters: require you to send through an addressable object")) );
+    }
 
+    
         
     //then need to read the object
     v8::Handle<v8::Value> messageBody = args[0];
@@ -135,13 +152,15 @@ void readORef(const v8::Arguments& args, JSObjectScript*& caller, ObjectReferenc
 //jsObjScript, SpaceObjectReference*& sporef)
 bool decodeAddressable(v8::Handle<v8::Value> senderVal, JSObjectScript*& jsObjScript, SpaceObjectReference*& sporef)
 {
-    if (!senderVal->IsObject() && !senderVal->IsNull() && !senderVal->IsUndefined())
+
+    if ((!senderVal->IsObject()) || (senderVal->IsUndefined()))
     {
         jsObjScript = NULL;
         sporef = NULL;
+        std::cout<<"\n\nReturning false from decodeAddressable 1\n\n";
         return false;
     }
-
+    
     v8::Handle<v8::Object>senderer = v8::Handle<v8::Object>::Cast(senderVal);
     return decodeAddressable(senderer,jsObjScript,sporef);
 }
@@ -149,16 +168,6 @@ bool decodeAddressable(v8::Handle<v8::Value> senderVal, JSObjectScript*& jsObjSc
 
 bool decodeAddressable(v8::Handle<v8::Object> senderVal, JSObjectScript*& jsObjScript, SpaceObjectReference*& sporef)
 {
-    //   if (!sender_val->IsObject() && !sender_val->IsNull() &&
-    //   !sender_val->IsUndefined())
-    // if (!senderVal->IsObject() && !senderVal->IsNull() && !senderVal->IsUndefined())
-    // {
-    //     jsObjScript = NULL;
-    //     sporef = NULL;
-    //     return false;
-    // }
-    
-    
     if (senderVal->InternalFieldCount() == ADDRESSABLE_FIELD_COUNT)
     {
         //decode the jsobject script field
@@ -170,6 +179,7 @@ bool decodeAddressable(v8::Handle<v8::Object> senderVal, JSObjectScript*& jsObjS
         if (jsObjScript == NULL)
         {
             sporef = NULL;
+            std::cout<<"\n\nReturning false from decodeAddressable 2: jsobject script\n\n";
             return false;
         }
 
@@ -183,6 +193,7 @@ bool decodeAddressable(v8::Handle<v8::Object> senderVal, JSObjectScript*& jsObjS
         if (jsObjScript == NULL)
         {
             jsObjScript = NULL;
+            std::cout<<"\n\nReturning false from decodeAddressable 2 sporef\n\n";
             return false;
         }
 
@@ -190,6 +201,7 @@ bool decodeAddressable(v8::Handle<v8::Object> senderVal, JSObjectScript*& jsObjS
     }
 
 
+    std::cout<<"\n\nReturning false from decodeAddressable 2 incorrect field count: "<<senderVal->InternalFieldCount()<<"\n\n";
     jsObjScript = NULL;
     sporef = NULL;
     return false;

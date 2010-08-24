@@ -114,8 +114,6 @@ JSObjectScript::JSObjectScript(HostedObjectPtr ho, const ObjectScriptManager::Ar
 
     for(HostedObject::SpaceSet::const_iterator space_it = spaces.begin(); space_it != spaces.end(); space_it != spaces.end()?space_it++:space_it)
     {
-
-        
         //register for scripting messages from user
         SpaceID space_id=*space_it;
         mScriptingPort = mParent->bindODPPort(space_id, Services::SCRIPTING);
@@ -135,12 +133,19 @@ JSObjectScript::JSObjectScript(HostedObjectPtr ho, const ObjectScriptManager::Ar
         if (mMessagingPort)
             mMessagingPort->receive( std::tr1::bind(&JSObjectScript::handleCommunicationMessageNewProto, this, _1, _2, _3));
 
-        space_it=spaces.find(space_id);//in case the space_set was munged in the process
+        space_it=spaces.find(space_id);//in case the space_set was munged in the
+                                       //process
+
+
+        //register a port for creating entities
+        mCreateEntityPort = mParent->bindODPPort(space_id, Services::CREATE_ENTITY);
+        //shouldn't need to receive on this port
     }
 }
 
 
-void JSObjectScript::create_entity(Vector3d& vec, String& script_name)
+
+void JSObjectScript::create_entity(Vector3d& vec, String& script_name, String& mesh_name)
 {
 
   //float WORLD_SCALE = mParent->mInputManager->mWorldScale->as<float>();
@@ -150,24 +155,23 @@ void JSObjectScript::create_entity(Vector3d& vec, String& script_name)
   Sirikata::Protocol::CreateObject creator;
   Sirikata::Protocol::IConnectToSpace spacer = creator.add_space_properties();
   Sirikata::Protocol::IObjLoc loc = spacer.mutable_requested_object_loc();
-  //loc.set_position(curLoc.getPosition() + Vector3d(direction(curLoc.getOrientation()))*WORLD_SCALE/3);
+
   loc.set_position(vec);
-  //loc.set_orientation(curLoc.getOrientation());
   loc.set_velocity(Vector3f(0,0,0));
   loc.set_angular_speed(0);
   loc.set_rotational_axis(Vector3f(1,0,0));
 
-  creator.set_mesh("http://www.sirikata.com/content/assets/cube.dae");
+  creator.set_mesh(mesh_name);
   creator.set_scale(Vector3f(1,1,1));
   creator.set_script(script_type);
   creator.set_script_name(script_name);
-  //Sirikata::Protocol::IStringMapProperty script_args = creator.mutable_script_args();
+
   std::string serializedCreate;
   creator.SerializeToString(&serializedCreate);
-  RoutableMessageBody body;
-  body.add_message("CreateObject", serializedCreate);
-  std::string serialized;
-  body.SerializeToString(&serialized);
+  // RoutableMessageBody body;
+  // body.add_message("CreateObject", serializedCreate);
+  // std::string serialized;
+  // body.SerializeToString(&serialized);
 
 
   FIXME_GET_SPACE();
@@ -176,10 +180,12 @@ void JSObjectScript::create_entity(Vector3d& vec, String& script_name)
 
   //ODP::Endpoint dest (spaceider,mParent->getObjReference(spaceider),Services::RPC);
   //The .object call to SpaceObjectReference gets out the ObjectReference.
-  ODP::Endpoint dest (space,(mParent->id(space)).object(),Services::RPC);
+//  ODP::Endpoint dest (space,(mParent->id(space)).object(),Services::RPC);
 
-  
-  mMessagingPort->send(dest, MemoryReference(serialized.data(), serialized.length()));
+  ODP::Endpoint dest (space,mParent->getObjReference(space),Services::CREATE_ENTITY);
+  //mCreateEntityPort->send(dest, MemoryReference(serialized.data(),
+  //serialized.length()));
+  mCreateEntityPort->send(dest, MemoryReference(serializedCreate));
 
 }
 
@@ -287,7 +293,6 @@ void JSObjectScript::test() const
 //populates the internal addressable object references vector
 void JSObjectScript::populateAddressable(Handle<Object>& system_obj )
 {
-
     //loading the vector
     mAddressableList.clear();
     getAllMessageable(mAddressableList);
@@ -355,7 +360,10 @@ void JSObjectScript::sendMessageToEntity(int numIndex, const std::string& msgBod
 void JSObjectScript::sendMessageToEntity(SpaceObjectReference* sporef, const std::string& msgBody) const
 {
     ODP::Endpoint dest (sporef->space(),sporef->object(),Services::COMMUNICATION);
-    mMessagingPort->send(dest,MemoryReference(msgBody));
+    MemoryReference toSend(msgBody);
+
+    //mMessagingPort->send(dest,MemoryReference(msgBody));
+    mMessagingPort->send(dest,toSend);
 }
 
 
@@ -723,6 +731,7 @@ void JSObjectScript::printAllHandlerLocations()
 
 v8::Local<v8::Object> JSObjectScript::getMessageSender(const ODP::Endpoint& src)
 {
+    
     SpaceObjectReference* sporef = new SpaceObjectReference(src.space(),src.object());
     
     Local<Object> tmpObj = mManager->mAddressableTemplate->NewInstance();
@@ -732,8 +741,6 @@ v8::Local<v8::Object> JSObjectScript::getMessageSender(const ODP::Endpoint& src)
 }
 
 
-
-
 void JSObjectScript::handleCommunicationMessageNewProto (const ODP::Endpoint& src, const ODP::Endpoint& dst, MemoryReference payload)
 {
     v8::HandleScope handle_scope;
@@ -741,14 +748,24 @@ void JSObjectScript::handleCommunicationMessageNewProto (const ODP::Endpoint& sr
     v8::Local<v8::Object> obj = v8::Object::New();
 
 
+    std::cout<<"\n\nComm: dst space: "<<dst.space()<<"\n\n";
+    
     v8::Local<v8::Object> msgSender = getMessageSender(src);
     //try deserialization
-    bool deserializeWorks;
-    deserializeWorks = JSSerializer::deserializeObject( payload,obj);
 
-    /*
-      FIXME: perhaps send a message back saying that deserialization failed
-    */
+    Sirikata::JS::Protocol::JSMessage js_msg;
+    bool parsed = js_msg.ParseFromArray(payload.data(), payload.size());
+
+//bftm:clean all this up later
+    
+    if (! parsed)
+    {
+        std::cout<<"\n\nCannot parse the message that I received on this port\n\n";
+        assert(false);
+    }
+    
+    bool deserializeWorks = JSSerializer::deserializeObject( js_msg,obj);
+    
     if (! deserializeWorks)
         return;
 
@@ -861,6 +878,7 @@ void JSObjectScript::deleteHandler(JSEventHandler* toDelete)
 //parses them.
 void JSObjectScript::handleScriptingMessageNewProto (const ODP::Endpoint& src, const ODP::Endpoint& dst, MemoryReference payload)
 {
+    
     Sirikata::Protocol::ScriptingMessage scripting_msg;
     bool parsed = scripting_msg.ParseFromArray(payload.data(), payload.size());
     if (!parsed)
@@ -1018,7 +1036,7 @@ void JSObjectScript::populateSystemObject(Handle<Object>& system_obj)
 
 void JSObjectScript::attachScript(const String& script_name)
 {
-  import(script_name);  
+    import(script_name);  
 }
 
 void JSObjectScript::create_presence(const SpaceID& new_space,std::string new_mesh)

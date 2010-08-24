@@ -92,11 +92,12 @@ void JSObjectScriptManager::createSystemTemplate()
     system_templ->Set(v8::String::New("__broadcast"),v8::FunctionTemplate::New(JSSystem::__ScriptTestBroadcastMessage));
 
     system_templ->Set(v8::String::New("reboot"),v8::FunctionTemplate::New(JSSystem::ScriptReboot));
+    system_templ->Set(v8::String::New("update_addressable"),v8::FunctionTemplate::New(JSSystem::ScriptUpdateAddressable));
 
+    
     system_templ->Set(v8::String::New("create_entity"), v8::FunctionTemplate::New(JSSystem::ScriptCreateEntity));
     system_templ->Set(v8::String::New("create_presence"), v8::FunctionTemplate::New(JSSystem::ScriptCreatePresence));
     
-
 
     //these are mutable fields
 	
@@ -109,7 +110,6 @@ void JSObjectScriptManager::createSystemTemplate()
     //system_templ->SetAccessor(JS_STRING(orientation), JSSystem::ScriptGetOrientation, JSSystem::ScriptSetOrientation);
     system_templ->SetAccessor(JS_STRING(angularAxis), JSSystem::ScriptGetAxisOfRotation, JSSystem::ScriptSetAxisOfRotation);
     system_templ->SetAccessor(JS_STRING(angularVelocity), JSSystem::ScriptGetAngularSpeed, JSSystem::ScriptSetAngularSpeed);
-
 
     mVec3Template = v8::Persistent<v8::FunctionTemplate>::New(CreateVec3Template());
     system_templ->Set(v8::String::New("Vec3"), mVec3Template);
@@ -135,7 +135,7 @@ void JSObjectScriptManager::createAddressableTemplate()
     v8::HandleScope handle_scope;
     mAddressableTemplate = v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
     // An internal field holds the external address of the addressable object
-    mAddressableTemplate->SetInternalFieldCount(3);
+    mAddressableTemplate->SetInternalFieldCount(ADDRESSABLE_FIELD_COUNT);
 
     //these function calls are defined in JSObjects/Addressable.hpp
     mAddressableTemplate->Set(v8::String::New("__debugRef"),v8::FunctionTemplate::New(JSAddressable::__debugRef));
@@ -174,12 +174,7 @@ void JSObjectScriptManager::createPresenceTemplate()
   mPresenceTemplate->Set(v8::String::New("setOrientation"),v8::FunctionTemplate::New(JSPresence::setOrientation));
   mPresenceTemplate->Set(v8::String::New("getOrientation"),v8::FunctionTemplate::New(JSPresence::getOrientation));
 
-    
-  
-//    system_templ->SetAccessor(JS_STRING(position), JSSystem::ScriptGetPosition, JSSystem::ScriptSetPosition);
-//    system_templ->SetAccessor(JS_STRING(velocity), JSSystem::ScriptGetVelocity, JSSystem::ScriptSetVelocity);
-
-
+ 
   //FIXME:
   //add function to check if presences are equal (point to same underlying object);
   //add function to see if presence is valid (has been declared null);
