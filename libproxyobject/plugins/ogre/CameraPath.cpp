@@ -135,7 +135,7 @@ void CameraPath::load(const String& filename) {
         float32 posx, posy, posz;
         float32 orientx, orienty, orientz, orientw;
         float32 dt;
-        int nitems = fscanf(pathfile, "(%f %f %f) (%f %f %f %f) (%f)",
+        int nitems = fscanf(pathfile, "(%f %f %f) (%f %f %f %f) (%f)\n",
             &posx, &posy, &posz,
             &orientx, &orienty, &orientz, &orientw,
             &dt
