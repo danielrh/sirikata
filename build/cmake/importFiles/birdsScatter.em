@@ -2,8 +2,8 @@
 var minDist = 20;
 var howFastToEvadeConst = 6;
 var evading = false;
-var howLongToFlee = 5;
-var orientationCallbackResolution = .05; //will blend quaternions every .2 seconds
+var howLongToFlee = 12;
+var orientationCallbackResolution = .02; //will blend quaternions every .2 seconds
 var blendQuaternion_factor = .1; //how much of goal quaternion vs how much of current orientation.
 var runOrientationCallback = true;
 //var runOrientationCallback = false;
