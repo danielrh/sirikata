@@ -1,6 +1,6 @@
 
 //in seconds: relatively slow to start with.
-var messageSendingInterval = 2;
+var messageSendingInterval = 1.0;
 
 
 function broadcastPosition()

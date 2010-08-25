@@ -1,10 +1,10 @@
 
-var minDist = 20;
-var howFastToEvadeConst = 5;
+var minDist = 25;
+var howFastToEvadeConst = 6;
 var evading = false;
-var howLongToFlee = 2;
-var orientationCallbackResolution = .1; //will blend quaternions every .2 seconds
-var blendQuaternion_factor = .5; //how much of goal quaternion vs how much of current orientation.
+var howLongToFlee = 12;
+var orientationCallbackResolution = .025; //will blend quaternions every .2 seconds
+var blendQuaternion_factor = .07; //how much of goal quaternion vs how much of current orientation.
 var runOrientationCallback = true;
 //var runOrientationCallback = false;
 
@@ -15,7 +15,7 @@ var realCenter= new system.Vec3(0,35,1);
 var maxRadiusFromCenter = 15;
 var dartingAboutCallbackPeriod = 1; //how long to go before calling darting about callback
 var minVelocitySquared = 1.0;
-var constBirdVelocity = 1.5;
+var constBirdVelocity = 2;
 
 //this function returns an object that has converted the relevant position fields from strings to a vec3
 function parseLocationFromObject(object)
