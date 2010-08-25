@@ -686,6 +686,7 @@ bool ColladaDocumentImporter::makeTexture
                 break;
             }
         }
+        retval.texCoord%=mMesh->geometry[geomindex].texUVs.size();
         retval.affecting = type;
         const Sampler * sampler =effectCommon->getSamplerPointerArray()[color.getTexture().getSamplerId()];
 #define FIX_ENUM(var,val) case Sampler::val: var = MaterialEffectInfo::Texture::val; break
