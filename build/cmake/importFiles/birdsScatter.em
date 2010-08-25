@@ -1,10 +1,10 @@
 
-var minDist = 6;
-var howFastToEvadeConst = 3;
+var minDist = 20;
+var howFastToEvadeConst = 5;
 var evading = false;
 var howLongToFlee = 2;
-var orientationCallbackResolution = .5; //will blend quaternions every .2 seconds
-var blendQuaternion_factor = .5; //how much of goal quaternion vs how much of current orientation.
+var orientationCallbackResolution = .1; //will blend quaternions every .2 seconds
+var blendQuaternion_factor = .15; //how much of goal quaternion vs how much of current orientation.
 var runOrientationCallback = true;
 
 
@@ -33,7 +33,7 @@ function cameraLocationCallback(object, sender)
 
     if (distance(camLocation,curPosition) < minDist)
     {
-        system.print("\n\n\nSQUAWK!  SQUAWK!  Evasive maneuvers\n\n");
+        //system.print("\n\n\nSQUAWK!  SQUAWK!  Evasive maneuvers\n\n");
         evasiveManeuvers(camLocation,curPosition);
     }
 }
@@ -139,7 +139,7 @@ int_quaternionToRotation = function(q) {
   var qZqZ = qZ * qZ;
 
   var d = qWqW + qXqX + qYqY + qZqZ;
-  system.print("IS d zero "+d);
+  //system.print("IS d zero "+d);
   return [
     [(qWqW + qXqX - qYqY - qZqZ) / d,
      2 * (qWqZ + qXqY) / d,
@@ -195,17 +195,17 @@ function forwardToQuaternion(ev) {
     var q = int_RotationToQuaternion(mat);//[x,y,z]fixme: is this x,y,z
     or is this transpose of that 
 */
-    system.print("\n\nforwardtoquaternion_out\n\n");
+    //system.print("\n\nforwardtoquaternion_out\n\n");
     var sysq = new system.Quaternion(q[0],q[1],q[2],q[3]);
     var test = int_quaternionToRotation(q);
-    system.print ("Velocity is ");
-    system.print(input);
-    system.print("Axis is ");
-    system.print(rotationaxis);
-    system.print("intermediate Quat is ");
-    system.print(q);
-    system.print ("Test is ");
-    system.print(test);
+    //system.print ("Velocity is ");
+    //system.print(input);
+    //system.print("Axis is ");
+    //system.print(rotationaxis);
+    //system.print("intermediate Quat is ");
+    //system.print(q);
+    //system.print ("Test is ");
+    //system.print(test);
 
     return sysq;
 }
@@ -229,31 +229,31 @@ function forwardToQuaternion(ev) {
     }
     var z=renorm(cross(x,y));
     x=renorm(cross(z,y));
-    system.print("\n\nforwardtoquaternion\n\n");
-    system.print(x);
-    system.print(y);
-    system.print(z);
+    //system.print("\n\nforwardtoquaternion\n\n");
+    //system.print(x);
+    //system.print(y);
+    //system.print(z);
     var mat = [[x[0], y[0], z[0]], [x[1], y[1], z[1]], [x[2], y[2], z[2]]];
     var q = int_RotationToQuaternion(mat);//[x,y,z]fixme: is this x,y,z or is this transpose of that 
-    system.print("\n\nforwardtoquaternion_out\n\n");
+    //system.print("\n\nforwardtoquaternion_out\n\n");
     var sysq = new system.Quaternion(q[0],q[1],q[2],q[3]);
     var test = quaternionToForward(sysq);
-    system.print ("Velocity is ");
-    system.print(ev);
-    system.print(q);
-    system.print(test);
-    system.print ("Result was");
+    //system.print ("Velocity is ");
+    //system.print(ev);
+    //system.print(q);
+    //system.print(test);
+    //system.print ("Result was");
 
     return sysq;
 }
 */
 function quaternionToCardinal(q,ind) {
     var r=int_quaternionToRotation([q.x,q.y,q.z,q.w]);
-    system.print("\n\nquaternion to cardinal\n\n");
-    system.print(r);
-    system.print(r[0]);
-    system.print(r[1]);
-    system.print(r[2]);
+    //system.print("\n\nquaternion to cardinal\n\n");
+    //system.print(r);
+    //system.print(r[0]);
+    //system.print(r[1]);
+    //system.print(r[2]);
     return new system.Vec3(r[0][ind],r[1][ind],r[2][ind]);//similar fixme from above applies  is it [ind][0] or [0][ind]
 }
 function quaternionToForward(q) {
@@ -286,7 +286,7 @@ var previousQuaternionGoal = forwardToQuaternion(previousVelocity);
 
 function orientationCallback()
 {
-    system.print("\n\nIn orientation callback\n\n");
+    //system.print("\n\nIn orientation callback\n\n");
     var currentVelocity = system.presences[0].getVelocity();
     if ((currentVelocity.x != 0) || (currentVelocity.y != 0) || (currentVelocity.z != 0))
     {
